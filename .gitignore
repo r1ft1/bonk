@@ -16,6 +16,14 @@ Thumbs.db
 !.env.example
 !.env.test
 
+/logic/config.json
+/logic/main
+
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+
+# Working Files for Assets
+*.blend
+*.xcf./logic/config.json
