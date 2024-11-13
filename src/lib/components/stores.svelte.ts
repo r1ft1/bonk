@@ -6,6 +6,7 @@ export type GameState = {
 	turnNumber: number;
 	p1: Player;
 	p2: Player;
+	winner: number;
 };
 
 type Player = {
@@ -36,6 +37,7 @@ export let gameState = writable({
 		cats: 0,
 		placed: 0,
 	},
+	winner: 0
 });
 
 

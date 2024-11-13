@@ -5,11 +5,10 @@
 	import Board from "./Board.svelte";
 	import Logo from "./Logo.svelte";
 	import { Stars } from "@threlte/extras";
+	import { gameState } from "./stores.svelte";
 
-
-	const { camera, renderMode,  } = useThrelte();
+	const { camera, renderMode } = useThrelte();
 	renderMode.set("always");
-
 </script>
 
 <T.PerspectiveCamera
@@ -32,7 +31,13 @@
 <T.DirectionalLight position={[-1, 10, 0]} intensity={1} />
 <T.AmbientLight intensity={0.7} />
 
-<Logo/>
+<Logo text={"boop!"} position={[0, 4, 0]} />
+
+{#if $gameState.winner == 1}
+	<Logo text={"Player 1 Wins!"} position={[-4, 1, 0]} />
+{:else if $gameState.winner == 2}
+	<Logo text={"Player 2 Wins!"} position={[-4, 1, 0]} />
+{/if}
 
 <Board />
 

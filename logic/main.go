@@ -32,9 +32,9 @@ func LoadTestGameState() *GameState {
 	gameState := NewGameState()
 
 	gameState.Board = Board{
-		{0, 8, 8, 0, 8, 8},
-		{0, 0, 2, 0, 1, 0},
-		{2, 0, 0, 0, 0, 0},
+		{1, 8, 8, 0, 8, 8},
+		{0, 1, 2, 0, 1, 0},
+		{2, 0, 1, 0, 0, 0},
 		{2, 0, 8, 0, 2, 0},
 		{0, 0, 8, 0, 8, 8},
 		{8, 0, 0, 0, 0, 0},
@@ -75,7 +75,9 @@ func (wsh webSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			newMove := &NewMove{}
 			err := conn.ReadJSON(newMove)
 			if err != nil {
-				log.Printf("ws: Error %s when reading msg from client", err)
+				log.Printf("Reading New move from client: ws: Error %s when reading msg from client", err)
+				conn.Close()
+				return
 			}
 			fmt.Println("new move is: ", *newMove)
 			// wsh.ch <- newMove.Position
@@ -97,13 +99,21 @@ func (wsh webSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			if err != nil {
 				log.Printf("ws: Error %s", err)
+				continue
 			}
 			log.Print(*newMove)
 
-			err = conn.WriteJSON(wsh.gameState)
-			if err != nil {
-				log.Println("writeJSON err:", err)
-				break
+			if len(wsh.gameState.Lines) > 1 {
+				wsh.gameState.Waiting = true
+			} else if len(wsh.gameState.Lines) == 1 {
+				wsh.gameState.Board.graduatePieces(wsh.gameState.Lines[0], wsh.gameState)
+				wsh.gameState.TurnNumber++
+			} else {
+				if wsh.gameState.isPlayer1() && wsh.gameState.P1.Placed == 8 || !wsh.gameState.isPlayer1() && wsh.gameState.P2.Placed == 8 {
+					wsh.gameState.Waiting = true
+					wsh.waitForMaxedOutGraduationChoice(conn)
+				}
+				wsh.gameState.TurnNumber++
 			}
 
 			for wsh.gameState.Waiting {
@@ -111,27 +121,58 @@ func (wsh webSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				threeSelection := &NewMove{}
 				err := conn.ReadJSON(threeSelection)
 				if err != nil {
-					log.Printf("ws: Error %s when reading msg from client", err)
+					log.Printf("Waiting: ws: Error %s when reading msg from client", err)
+					continue
 				}
 				if slices.Contains(wsh.gameState.ThreeChoices, threeSelection.Position) {
 					//check which of the Lines the threeSelection is in
 					var line = wsh.gameState.getLineContainingPosition(threeSelection.Position)
 					if line == nil {
 						fmt.Println("line is nil")
+						continue
 					}
 					wsh.gameState.Board.graduatePieces(line, wsh.gameState)
+					wsh.gameState.TurnNumber++
 					wsh.gameState.Waiting = false
 					err = conn.WriteJSON(wsh.gameState)
 					if err != nil {
 						log.Println("writeJSON err:", err)
-						break
+						continue
 					}
 				} else {
 					fmt.Println("not a valid selection")
+					continue
 				}
 			}
+
+			err = conn.WriteJSON(wsh.gameState)
+			if err != nil {
+				log.Println("writeJSON err:", err)
+				break
+			}
+
 		}
 	}(conn)
+}
+
+func (wsh webSocketHandler) waitForMaxedOutGraduationChoice(conn *websocket.Conn) {
+	for wsh.gameState.Waiting {
+		fmt.Println("Waiting for maxed out grad choice", wsh.gameState.Waiting)
+		pieceSelection := &NewMove{}
+		err := conn.ReadJSON(pieceSelection)
+		if err != nil {
+			log.Printf("Max Piece Waiting: ws: Error %s when reading msg from client", err)
+			conn.Close()
+			return
+		}
+		playerPiecePosition := wsh.gameState.Board.getPlayerPiecePositions(wsh.gameState)
+		if slices.Contains(playerPiecePosition, pieceSelection.Position) {
+			wsh.gameState.Board.graduatePiece(pieceSelection.Position, wsh.gameState)
+		} else {
+			fmt.Println("Max piece waiting: not a valid selection")
+			continue
+		}
+	}
 }
 
 type server struct {
@@ -162,7 +203,7 @@ func NewServer() *server {
 				}
 			},
 		},
-		gameState: LoadTestGameState(),
+		gameState: NewGameState(),
 		// ch:        make(chan Position, 10),
 	}
 
