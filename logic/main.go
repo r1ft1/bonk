@@ -102,6 +102,13 @@ func (wsh webSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			log.Print(*newMove)
+			log.Print(wsh.gameState.P1.Placed, wsh.gameState.P2.Placed)
+
+			err = conn.WriteJSON(wsh.gameState)
+			if err != nil {
+				log.Println("writeJSON err:", err)
+				break
+			}
 
 			if len(wsh.gameState.Lines) > 1 {
 				wsh.gameState.Waiting = true
@@ -110,6 +117,15 @@ func (wsh webSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				wsh.gameState.TurnNumber++
 			} else {
 				if wsh.gameState.isPlayer1() && wsh.gameState.P1.Placed == 8 || !wsh.gameState.isPlayer1() && wsh.gameState.P2.Placed == 8 {
+					if wsh.gameState.Board.winCheckMaxCats(wsh.gameState) {
+						err = conn.WriteJSON(wsh.gameState)
+						if err != nil {
+							log.Println("writeJSON err:", err)
+							break
+						}
+						conn.Close()
+						return
+					}
 					wsh.gameState.Waiting = true
 					wsh.waitForMaxedOutGraduationChoice(conn)
 				}
@@ -166,8 +182,10 @@ func (wsh webSocketHandler) waitForMaxedOutGraduationChoice(conn *websocket.Conn
 			return
 		}
 		playerPiecePosition := wsh.gameState.Board.getPlayerPiecePositions(wsh.gameState)
+		fmt.Println(playerPiecePosition, pieceSelection.Position)
 		if slices.Contains(playerPiecePosition, pieceSelection.Position) {
 			wsh.gameState.Board.graduatePiece(pieceSelection.Position, wsh.gameState)
+			wsh.gameState.Waiting = false
 		} else {
 			fmt.Println("Max piece waiting: not a valid selection")
 			continue

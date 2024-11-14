@@ -442,6 +442,31 @@ func (board *Board) winCheck(line []Position, gameState *GameState) {
 	}
 }
 
+func (board *Board) winCheckMaxCats(gameState *GameState) bool {
+	// Check if the current player has 8 cats on the board
+	countCats := 0
+	for y := 0; y < len(*board); y++ {
+		for x := 0; x < len(*board); x++ {
+			tile := (*board)[y][x]
+			if gameState.isPlayer1() && tile == 2 {
+				countCats++
+			} else if !gameState.isPlayer1() && tile == 9 {
+				countCats++
+			}
+		}
+	}
+	if countCats >= 8 {
+		fmt.Println("Player has won by having 8 cats on the board")
+		if gameState.isPlayer1() {
+			gameState.Winner = 1
+		} else {
+			gameState.Winner = 2
+		}
+		return true
+	}
+	return false
+}
+
 func (board *Board) getPlayerPiecePositions(gameState *GameState) []Position {
 	var positions []Position
 	for y := 0; y < len(*board); y++ {
