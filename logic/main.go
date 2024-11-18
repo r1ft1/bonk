@@ -36,7 +36,7 @@ type NewMove struct {
 }
 
 type Server struct {
-	mutex       sync.Mutex
+	serverMutex sync.Mutex
 	games       map[string]*Game
 	waitingGame *Game
 }
@@ -80,8 +80,8 @@ func NewGame() *Game {
 }
 
 func (gs *Server) assignPlayerToGame(conn *websocket.Conn, requestedGameID string) (*Game, string) {
-	gs.mutex.Lock()
-	defer gs.mutex.Unlock()
+	gs.serverMutex.Lock()
+	defer gs.serverMutex.Unlock()
 
 	// If specific game requested
 	if requestedGameID != "" {
@@ -305,8 +305,8 @@ func (s *Server) broadcastGameState(game *Game, alreadyLocked bool) {
 }
 
 func (s *Server) handlePlayerDisconnect(gameID string, playerID string) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	s.serverMutex.Lock()
+	defer s.serverMutex.Unlock()
 
 	game, exists := s.games[gameID]
 	if !exists {
