@@ -6,6 +6,7 @@
 		pieceChoice,
 		webSocket,
 		type GameState,
+		type ServerMessage,
 	} from "./stores.svelte";
 	import { onMount } from "svelte";
 	import { Centrifuge } from "centrifuge";
@@ -103,7 +104,13 @@
 	});
 
 	$webSocket.addEventListener("message", function (event) {
-		$gameState = JSON.parse(event.data);
+		const msg: ServerMessage = JSON.parse(event.data);
+		if(msg.type != "error"){
+			$gameState = msg.payload;
+		}
+		else {
+			console.log(msg.payload);
+		}
 		console.log($gameState);
 	});
 </script>

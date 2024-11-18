@@ -9,6 +9,14 @@ export type GameState = {
 	winner: number;
 };
 
+export type ServerMessage = {
+	type:     string      
+	gameID:   string    
+	payload:  GameState | any
+}
+
+
+
 type Player = {
 	kittens: number;
 	cats: number;
@@ -42,4 +50,5 @@ export let gameState = writable({
 
 
 export let webSocket = writable(new WebSocket("ws://localhost:8080/ws"));
+export let message = writable({type: "", gameID: "", payload: {}});
 export let pieceChoice = writable(0);

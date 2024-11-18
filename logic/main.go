@@ -4,29 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
-	"os"
 	"slices"
+	"sync"
 
 	"github.com/gorilla/websocket"
 )
-
-// func auth(h http.Handler) http.Handler {
-// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-// 		ctx := r.Context()
-// 		// Put authentication Credentials into request Context.
-// 		// Since we don't have any session backend here we simply
-// 		// set user ID as empty string. Users with empty ID called
-// 		// anonymous users, in real app you should decide whether
-// 		// anonymous users allowed to connect to your server or not.
-// 		cred := &centrifuge.Credentials{
-// 			UserID: "",
-// 		}
-// 		newCtx := centrifuge.SetCredentials(ctx, cred)
-// 		r = r.WithContext(newCtx)
-// 		h.ServeHTTP(w, r)
-// 	})
-// }
 
 func LoadTestGameState() *GameState {
 	gameState := NewGameState()
@@ -46,243 +30,327 @@ func LoadTestGameState() *GameState {
 	return gameState
 }
 
-type webSocketHandler struct {
-	upgrader  websocket.Upgrader
-	gameState *GameState
-	// ch        chan Position
-}
-
 type NewMove struct {
 	Position Position    `json:"position"`
 	Piece    json.Number `json:"piece"`
 }
 
-func (wsh webSocketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+type Server struct {
+	mutex       sync.Mutex
+	games       map[string]*Game
+	waitingGame *Game
+}
+
+type Game struct {
+	ID        string                     `json:"id"`
+	Players   map[string]*websocket.Conn `json:"players"`
+	GameState *GameState                 `json:"gameState"`
+	mutex     sync.Mutex
+}
+
+type Message struct {
+	Type     string      `json:"type"`
+	GameID   string      `json:"gameId"`
+	PlayerID string      `json:"playerId"`
+	Payload  interface{} `json:"payload"`
+}
+
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		origins := map[string]bool{
+			"http://localhost:5173": true,
+			"http://127.0.0.1:5173": true,
+		}
+		return origins[r.Header.Get("Origin")]
+	},
+}
+
+func NewServer() *Server {
+	return &Server{
+		games: make(map[string]*Game),
+	}
+}
+
+func NewGame() *Game {
+	return &Game{
+		ID:        generateGameID(),
+		GameState: NewGameState(),
+		Players:   make(map[string]*websocket.Conn),
+	}
+}
+
+func (gs *Server) assignPlayerToGame(conn *websocket.Conn, requestedGameID string) (*Game, string) {
+	gs.mutex.Lock()
+	defer gs.mutex.Unlock()
+
+	// If specific game requested
+	if requestedGameID != "" {
+		if game, exists := gs.games[requestedGameID]; exists {
+			if len(game.Players) < 2 {
+				playerID := fmt.Sprintf("player%d", len(game.Players)+1)
+				game.Players[playerID] = conn
+				return game, playerID
+			}
+			return nil, "" // Game full
+		}
+		return nil, "" // Game not found
+	}
+
+	// Join or create waiting game
+	if gs.waitingGame == nil {
+		gs.waitingGame = NewGame()
+		gs.games[gs.waitingGame.ID] = gs.waitingGame
+	}
+
+	game := gs.waitingGame
+	playerID := fmt.Sprintf("player%d", len(game.Players)+1)
+	game.Players[playerID] = conn
+
+	// If game is now full, clear waiting game
+	if len(game.Players) == 2 {
+		gs.waitingGame = nil
+	}
+
+	return game, playerID
+}
+
+func (s *Server) handleConnection(w http.ResponseWriter, r *http.Request) {
 	enableCors(&w)
-	conn, err := wsh.upgrader.Upgrade(w, r, nil)
+	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		fmt.Printf("error %s when upgrading connection to websocket", err)
+		log.Printf("Upgrade error: %v", err)
 		return
 	}
 
-	err = conn.WriteJSON(wsh.gameState)
-	if err != nil {
-		log.Println("initial message to client: writeJSON err:", err)
+	game, playerID := s.assignPlayerToGame(conn, r.URL.Query().Get("gameId"))
+	if game == nil {
+		conn.WriteJSON(Message{Type: "error", Payload: "Could not join game"})
+		conn.Close()
+		return
 	}
 
-	go func(conn *websocket.Conn) {
-		for {
-			newMove := &NewMove{}
-			err := conn.ReadJSON(newMove)
-			if err != nil {
-				log.Printf("Reading New move from client: ws: Error %s when reading msg from client", err)
-				conn.Close()
-				return
-			}
-			fmt.Println("new move is: ", *newMove)
-			// wsh.ch <- newMove.Position
+	// Send initial game state
+	if err := conn.WriteJSON(Message{
+		Type:     "joined",
+		GameID:   game.ID,
+		PlayerID: playerID,
+		Payload:  game.GameState,
+	}); err != nil {
+		s.handlePlayerDisconnect(game.ID, playerID)
+		return
+	}
 
-			// kittenOrCat can either be 0 or 1 for kitten or cat respectively
-			kittenOrCat, _ := newMove.Piece.Int64()
-			if wsh.gameState.isPlayer1() {
-				if kittenOrCat == 0 {
-					err = wsh.gameState.Board.move(newMove.Position, 1, wsh.gameState)
-				} else {
-					err = wsh.gameState.Board.move(newMove.Position, 2, wsh.gameState)
-				}
-			} else {
-				if kittenOrCat == 0 {
-					err = wsh.gameState.Board.move(newMove.Position, 8, wsh.gameState)
-				} else {
-					err = wsh.gameState.Board.move(newMove.Position, 9, wsh.gameState)
-				}
-			}
-			if err != nil {
-				log.Printf("ws: Error %s", err)
-				continue
-			}
-			log.Print(*newMove)
-			log.Print(wsh.gameState.P1.Placed, wsh.gameState.P2.Placed)
-
-			err = conn.WriteJSON(wsh.gameState)
-			if err != nil {
-				log.Println("writeJSON err:", err)
-				break
-			}
-
-			if len(wsh.gameState.Lines) > 1 {
-				wsh.gameState.Waiting = true
-			} else if len(wsh.gameState.Lines) == 1 {
-				wsh.gameState.Board.graduatePieces(wsh.gameState.Lines[0], wsh.gameState)
-				wsh.gameState.TurnNumber++
-			} else {
-				if wsh.gameState.isPlayer1() && wsh.gameState.P1.Placed == 8 || !wsh.gameState.isPlayer1() && wsh.gameState.P2.Placed == 8 {
-					if wsh.gameState.Board.winCheckMaxCats(wsh.gameState) {
-						err = conn.WriteJSON(wsh.gameState)
-						if err != nil {
-							log.Println("writeJSON err:", err)
-							break
-						}
-						conn.Close()
-						return
-					}
-					wsh.gameState.Waiting = true
-					wsh.waitForMaxedOutGraduationChoice(conn)
-				}
-				wsh.gameState.TurnNumber++
-			}
-
-			for wsh.gameState.Waiting {
-				fmt.Println(wsh.gameState.Waiting)
-				threeSelection := &NewMove{}
-				err := conn.ReadJSON(threeSelection)
-				if err != nil {
-					log.Printf("Waiting: ws: Error %s when reading msg from client", err)
-					continue
-				}
-				if slices.Contains(wsh.gameState.ThreeChoices, threeSelection.Position) {
-					//check which of the Lines the threeSelection is in
-					var line = wsh.gameState.getLineContainingPosition(threeSelection.Position)
-					if line == nil {
-						fmt.Println("line is nil")
-						continue
-					}
-					wsh.gameState.Board.graduatePieces(line, wsh.gameState)
-					wsh.gameState.TurnNumber++
-					wsh.gameState.Waiting = false
-					err = conn.WriteJSON(wsh.gameState)
-					if err != nil {
-						log.Println("writeJSON err:", err)
-						continue
-					}
-				} else {
-					fmt.Println("not a valid selection")
-					continue
-				}
-			}
-
-			err = conn.WriteJSON(wsh.gameState)
-			if err != nil {
-				log.Println("writeJSON err:", err)
-				break
-			}
-
-		}
-	}(conn)
+	// Start game loop
+	s.handleGameLoop(conn, game, playerID)
 }
 
-func (wsh webSocketHandler) waitForMaxedOutGraduationChoice(conn *websocket.Conn) {
-	for wsh.gameState.Waiting {
-		fmt.Println("Waiting for maxed out grad choice", wsh.gameState.Waiting)
-		pieceSelection := &NewMove{}
-		err := conn.ReadJSON(pieceSelection)
-		if err != nil {
-			log.Printf("Max Piece Waiting: ws: Error %s when reading msg from client", err)
-			conn.Close()
+func (s *Server) handleGameLoop(conn *websocket.Conn, game *Game, playerID string) {
+	defer func() {
+		s.handlePlayerDisconnect(game.ID, playerID)
+		conn.Close()
+	}()
+
+	for {
+		var newMove NewMove
+		if err := conn.ReadJSON(&newMove); err != nil {
+			log.Printf("Read error from %s: %v", playerID, err)
 			return
 		}
-		playerPiecePosition := wsh.gameState.Board.getPlayerPiecePositions(wsh.gameState)
-		fmt.Println(playerPiecePosition, pieceSelection.Position)
-		if slices.Contains(playerPiecePosition, pieceSelection.Position) {
-			wsh.gameState.Board.graduatePiece(pieceSelection.Position, wsh.gameState)
-			wsh.gameState.Waiting = false
-		} else {
-			fmt.Println("Max piece waiting: not a valid selection")
+
+		if !s.isValidTurn(game, playerID) {
+			conn.WriteJSON(Message{
+				Type:    "error",
+				GameID:  game.ID,
+				Payload: "Not your turn",
+			})
+			continue // Continue waiting for valid turn instead of disconnecting
+		}
+
+		if err := s.processTurn(conn, game, &newMove); err != nil {
+			conn.WriteJSON(Message{
+				Type:    "error",
+				GameID:  game.ID,
+				Payload: err.Error(),
+			})
 			continue
+		}
+
+		// Broadcast updated state to all players
+		s.broadcastGameState(game, false)
+	}
+}
+
+func (s *Server) isValidTurn(game *Game, playerID string) bool {
+	return (game.GameState.isPlayer1() && playerID == "player1") ||
+		(!game.GameState.isPlayer1() && playerID == "player2")
+}
+
+func (s *Server) processTurn(conn *websocket.Conn, game *Game, newMove *NewMove) error {
+	game.mutex.Lock()
+	defer game.mutex.Unlock()
+
+	kittenOrCat, _ := newMove.Piece.Int64()
+
+	var piece uint8
+	if game.GameState.isPlayer1() {
+		if kittenOrCat == 0 {
+			piece = 1
+		} else {
+			piece = 2
+		}
+	} else {
+		if kittenOrCat == 0 {
+			piece = 8
+		} else {
+			piece = 9
+		}
+	}
+
+	if err := game.GameState.Board.move(newMove.Position, piece, game.GameState); err != nil {
+		return fmt.Errorf("invalid move: %w", err)
+	}
+	s.broadcastGameState(game, true)
+
+	// Handle graduation logic
+	if len(game.GameState.Lines) > 1 {
+		game.GameState.Waiting = true
+		if err := s.handleMultipleGraduations(conn, game); err != nil {
+			return err
+		}
+	} else if len(game.GameState.Lines) == 1 {
+		game.GameState.Board.graduatePieces(game.GameState.Lines[0], game.GameState)
+		game.GameState.TurnNumber++
+	} else {
+		if s.shouldCheckMaxedOut(game) {
+			if game.GameState.Board.winCheckMaxCats(game.GameState) {
+				return nil
+			}
+			game.GameState.Waiting = true
+			if err := s.handleMaxedOutGraduation(conn, game); err != nil {
+				return err
+			}
+		}
+		game.GameState.TurnNumber++
+	}
+
+	return nil
+}
+
+func (s *Server) shouldCheckMaxedOut(game *Game) bool {
+	return (game.GameState.isPlayer1() && game.GameState.P1.Placed == 8) ||
+		(!game.GameState.isPlayer1() && game.GameState.P2.Placed == 8)
+}
+
+func (s *Server) handleMultipleGraduations(conn *websocket.Conn, game *Game) error {
+	for game.GameState.Waiting {
+		var selection NewMove
+		if err := conn.ReadJSON(&selection); err != nil {
+			return fmt.Errorf("failed to read graduation selection: %w", err)
+		}
+
+		if !slices.Contains(game.GameState.ThreeChoices, selection.Position) {
+			continue
+		}
+
+		line := game.GameState.getLineContainingPosition(selection.Position)
+		if line == nil {
+			continue
+		}
+
+		game.GameState.Board.graduatePieces(line, game.GameState)
+		game.GameState.TurnNumber++
+		game.GameState.Waiting = false
+	}
+	return nil
+}
+
+func (s *Server) handleMaxedOutGraduation(conn *websocket.Conn, game *Game) error {
+	for game.GameState.Waiting {
+		var selection NewMove
+		if err := conn.ReadJSON(&selection); err != nil {
+			return fmt.Errorf("failed to read maxed out graduation selection: %w", err)
+		}
+
+		playerPieces := game.GameState.Board.getPlayerPiecePositions(game.GameState)
+		if !slices.Contains(playerPieces, selection.Position) {
+			continue
+		}
+
+		game.GameState.Board.graduatePiece(selection.Position, game.GameState)
+		game.GameState.Waiting = false
+	}
+	return nil
+}
+
+func (s *Server) broadcastGameState(game *Game, alreadyLocked bool) {
+
+	if !alreadyLocked {
+		game.mutex.Lock()
+		defer game.mutex.Unlock()
+	}
+
+	stateMsg := Message{
+		Type:    "gameState",
+		GameID:  game.ID,
+		Payload: game.GameState,
+	}
+
+	for playerID, conn := range game.Players {
+		stateMsg.PlayerID = playerID
+		if err := conn.WriteJSON(stateMsg); err != nil {
+			log.Printf("Failed to broadcast to %s: %v", playerID, err)
+			s.handlePlayerDisconnect(game.ID, playerID)
 		}
 	}
 }
 
-type server struct {
-	// subscriberMessageBuffer int
-	mux http.ServeMux
-	// subscribers             map[*subscriber]struct{}
+func (s *Server) handlePlayerDisconnect(gameID string, playerID string) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	game, exists := s.games[gameID]
+	if !exists {
+		return
+	}
+
+	game.mutex.Lock()
+	defer game.mutex.Unlock()
+
+	delete(game.Players, playerID)
+
+	if len(game.Players) == 0 {
+		delete(s.games, gameID)
+		if s.waitingGame == game {
+			s.waitingGame = nil
+		}
+		return
+	}
+
+	game.GameState.Winner = 0
+	s.broadcastGameState(game, true)
 }
 
-// type subscriber struct {
-// 	msgs chan []byte
-// }
-
-func NewServer() *server {
-	s := &server{
-		// subscriberMessageBuffer: 10,
-		// subscribers:             make(map[*subscriber]struct{}),
+// Helper functions remain the same
+func generateGameID() string {
+	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	b := make([]byte, 6)
+	for i := range b {
+		b[i] = charset[rand.Intn(len(charset))]
 	}
-
-	// my websocket handler has a method that implements the http.Handler interface
-	wsHandler := webSocketHandler{
-		upgrader: websocket.Upgrader{
-			CheckOrigin: func(r *http.Request) bool {
-				if r.Header.Get("Origin") == "http://localhost:5173" || r.Header.Get("Origin") == "http://127.0.0.1:5173" {
-					return true
-				} else {
-					fmt.Printf("error when upgrading connection to websocket: %s ", "Origin not allowed")
-					return false
-				}
-			},
-		},
-		gameState: NewGameState(),
-		// ch:        make(chan Position, 10),
-	}
-
-	s.mux.Handle("/ws", wsHandler)
-
-	return s
+	return string(b)
 }
 
 func enableCors(w *http.ResponseWriter) {
 	(*w).Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
 	(*w).Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	// (*w).Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-
 }
 
 func main() {
-
-	// node, err := centrifuge.New(centrifuge.Config{})
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	// node.OnConnect(func(client *centrifuge.Client) {
-	// 	transportName := client.Transport().Name()
-	// 	// In our example clients connect with JSON protocol but it can also be Protobuf.
-	// 	transportProto := client.Transport().Protocol()
-	// 	log.Printf("client connected via %s (%s)", transportName, transportProto)
-
-	// 	client.OnSubscribe(func(e centrifuge.SubscribeEvent, cb centrifuge.SubscribeCallback) {
-	// 		log.Printf("client subscribes on channel %s", e.Channel)
-	// 		cb(centrifuge.SubscribeReply{}, nil)
-	// 	})
-
-	// 	client.OnPublish(func(e centrifuge.PublishEvent, cb centrifuge.PublishCallback) {
-	// 		log.Printf("client publishes into channel %s: %s", e.Channel, string(e.Data))
-	// 		cb(centrifuge.PublishReply{}, nil)
-	// 	})
-
-	// 	client.OnDisconnect(func(e centrifuge.DisconnectEvent) {
-	// 		log.Printf("client disconnected")
-	// 	})
-	// })
-
-	// if err := node.Run(); err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	// wsHandler := centrifuge.NewWebsocketHandler(node, centrifuge.WebsocketConfig{})
-	// http.Handle("/connection/websocket", auth(wsHandler))
-
-	// log.Printf("Starting server, visit http://localhost:8000")
-	// if err := http.ListenAndServe(":8000", nil); err != nil {
-	// 	log.Fatal(err)
-	// }
-
 	server := NewServer()
+	http.HandleFunc("/ws", server.handleConnection)
 
-	err := http.ListenAndServe(":8080", &server.mux)
-
-	if err != nil {
-		fmt.Println("Error starting server")
-		os.Exit(1)
+	log.Println("Server starting on :8080")
+	if err := http.ListenAndServe(":8080", nil); err != nil {
+		log.Fatal("ListenAndServe:", err)
 	}
 }
