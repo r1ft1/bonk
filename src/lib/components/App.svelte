@@ -12,11 +12,6 @@
 	import { Centrifuge } from "centrifuge";
 	import Renderer from "./Renderer.svelte";
 
-	//0 - kitten, 1 - cat
-	// let pieceChoiceOptions = [0, 1];
-
-	$: console.log($pieceChoice);
-
 	// const centrifuge = new Centrifuge(
 	// 	"ws://localhost:8000/connection/websocket",
 	// 	{

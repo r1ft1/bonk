@@ -35,6 +35,11 @@ type NewMove struct {
 	Piece    json.Number `json:"piece"`
 }
 
+type Move struct {
+	Position Position `json:"position"`
+	Piece    uint8    `json:"piece"`
+}
+
 type Server struct {
 	serverMutex sync.Mutex
 	games       map[string]*Game
@@ -209,6 +214,7 @@ func (s *Server) processTurn(conn *websocket.Conn, game *Game, newMove *NewMove)
 	if err := game.GameState.Board.move(newMove.Position, piece, game.GameState); err != nil {
 		return fmt.Errorf("invalid move: %w", err)
 	}
+	game.GameState.Placed = Move{Position: newMove.Position, Piece: piece}
 	s.broadcastGameState(game, true)
 
 	// Handle graduation logic

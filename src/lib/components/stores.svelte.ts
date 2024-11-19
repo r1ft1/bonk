@@ -7,6 +7,12 @@ export type GameState = {
 	p1: Player;
 	p2: Player;
 	winner: number;
+	placed: NewMove;
+};
+
+type NewMove = {
+	position: { x: number; y: number };
+	piece: number;
 };
 
 export type ServerMessage = {
@@ -45,7 +51,11 @@ export let gameState = writable({
 		cats: 0,
 		placed: 0,
 	},
-	winner: 0
+	winner: 0,
+	placed: {
+		position: { x: 0, y: 0 },
+		piece: 0,
+	},
 });
 
 

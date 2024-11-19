@@ -11,6 +11,8 @@
 	import Cat from "./Cat.svelte";
 	import Kitten from "./Kitten.svelte";
 	import { GLTFLoader } from "three/examples/jsm/Addons.js";
+	import { animate } from "motion";
+	import Piece from "./Piece.svelte";
 
 	const map = useTexture("/tile.png", {
 		transform: (texture) => {
@@ -21,26 +23,17 @@
 		},
 	});
 
-	const gravity = 10;
-
-	let newPiece = false;
-	let newPieceRef: THREE.Group;
-	let previousBoard = $gameState.board;
 	let lastMove = { x: 0, z: 0 };
 	let color = "orange";
 
 	$: if ($gameState.turnNumber % 2 === 0) {
 		color = "orange";
+		console.log(color);
 	} else {
 		color = "lightblue";
+		console.log(color);
 	}
 
-	// executes when the server validates the move
-	$: if (previousBoard !== $gameState.board) {
-		newPiece = true;
-		console.log("board changed");
-		// animatePiecePlacement();
-	}
 
 	const wsSendMove = (move: THREE.Vector3) => {
 		$webSocket.send(
@@ -49,7 +42,7 @@
 				piece: $pieceChoice,
 			})
 		);
-		lastMove = { x: move.x, z: move.z };
+		console.log(lastMove);
 	};
 
 	interactivity();
@@ -59,23 +52,23 @@
 	let planeMesh: THREE.Mesh;
 	let highlightMesh: THREE.Mesh;
 
+	$: {
+		lastMove.x = $gameState.placed.position.x;
+		lastMove.z = $gameState.placed.position.y;
+		console.log("lastmove: ",lastMove, "color: ", color);
+	}
+
+	// for (let j = 0; j < $gameState.board.length; j++) {
+	// 	for (let i=0; i<$gameState.board[j].length; i++) {
+	// 		console.log(j,i,$gameState.board[j][i]);
+	// 	}
+	// }
+
 	// let objects: THREE.Mesh[] | undefined = [];
 	let time = 0;
 	useTask((delta) => {
 		time += delta;
 		(highlightMesh.material as THREE.Material).opacity = 1 + Math.sin(time);
-
-		if (newPieceRef && newPieceRef.position.y > 0) {
-			// newPieceRef.position.set(
-			// 	newPieceRef.position.x,
-			// 	newPieceRef.position.y - delta * 1,
-			// 	newPieceRef.position.z
-			// );
-			// newPieceRef.position.y -= delta*0.1;
-		} else if (newPiece) {
-			previousBoard = $gameState.board;
-			newPiece = false;
-		}
 	});
 </script>
 
@@ -84,55 +77,39 @@
 	<T.Mesh position.y={-0.5}>
 		<T.BoxGeometry args={[6, 1, 6]} />
 		<T.MeshBasicMaterial map={value} />
-		<Outlines color="black" thickness={0.02}/>
+		<Outlines color="black" thickness={0.02} />
 		<Edges color="black" />
 	</T.Mesh>
 {/await}
 
-{#if newPiece}
-	{#if $pieceChoice == 0}
-		<Kitten
-			position={[lastMove.x, 0, lastMove.z]}
-			scale={0.5}
-			{color}
-			bind:ref={newPieceRef}
-		/>
-	{:else if $pieceChoice == 1}
-		<Cat
-			position={[lastMove.x, 0, lastMove.z]}
-			scale={0.5}
-			{color}
-			bind:ref={newPieceRef}
-		/>
-	{/if}
-{/if}
-
 <!-- Piece generation from $gameState.board -->
-{#each previousBoard as column, i}
-	{#each column as cell, j}
-		{#if cell == 1}
+{#each $gameState.board as row, i}
+	{#each row as cell, j}
+		{#if j == lastMove.x && i == lastMove.z}
+			<Piece piece={$gameState.placed.piece} position={[j - 2.5, 2, i - 2.5]} placed={true}/>
+		{:else if cell == 1}
 			<Kitten
-				position={[j - 2.5, 0, i - 2.5]}
-				scale={0.5}
+				position={[j - 2.5, 2, i - 2.5]}
 				color={"orange"}
+				placed={false}
 			/>
 		{:else if cell == 8}
 			<Kitten
 				position={[j - 2.5, 0, i - 2.5]}
-				scale={0.5}
 				color={"lightblue"}
+				placed={false}
 			/>
 		{:else if cell == 2}
 			<Cat
 				position={[j - 2.5, 0, i - 2.5]}
-				scale={0.5}
 				color={"orange"}
+				placed={false}
 			/>
 		{:else if cell == 9}
 			<Cat
 				position={[j - 2.5, 0, i - 2.5]}
-				scale={0.5}
 				color={"lightblue"}
+				placed={false}
 			/>
 		{/if}
 	{/each}

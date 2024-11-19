@@ -4,32 +4,55 @@ Command: npx @threlte/gltf@2.0.3 cat.glb
 -->
 
 <script>
-  import { Group } from 'three'
-  import { T, forwardEventHandlers } from '@threlte/core'
-  import { Outlines, useGltf, Edges } from '@threlte/extras'
+	import { Group } from "three";
+	import { T, forwardEventHandlers } from "@threlte/core";
+	import { Outlines, useGltf, Edges } from "@threlte/extras";
+	import { animate } from "motion";
 
-  export const ref = new Group()
+	export const ref = new Group();
 
-  const gltf = useGltf('/cat.glb')
+	const gltf = useGltf("/cat.glb");
 
-  const component = forwardEventHandlers()
+	const component = forwardEventHandlers();
 
-  export let color
-
+	export let color;
+	export let placed;
+  export let position;
 </script>
 
 <T is={ref} dispose={false} {...$$restProps} bind:this={$component}>
-  {#await gltf}
-    <slot name="fallback" />
-  {:then gltf}
-    <T.Mesh geometry={gltf.nodes.Cube.geometry} material={gltf.nodes.Cube.material} position={[0, 1.02, 0]} >
-      <T.MeshStandardMaterial color={color} />
+	{#await gltf}
+		<slot name="fallback" />
+	{:then gltf}
+		<T.Mesh
+			geometry={gltf.nodes.Cube.geometry}
+			material={gltf.nodes.Cube.material}
+			position={position}
+      scale={[0.5, 0.5, 0.5]}
+			on:create={({ ref }) => {
+				if (placed) {
+					animate(
+						ref.position,
+						{ y: 0.02 },
+						{
+							duration: 1,
+							repeat: 0,
+							ease: "backInOut",
+							type: "spring",
+						}
+					);
+				} else {
+					ref.position.y = 0.02;
+				}
+			}}
+		>
+			<T.MeshStandardMaterial color={color} />
 			<Outlines color="black" />
-      <Edges color="black" />
-    </T.Mesh>
-  {:catch error}
-    <slot name="error" {error} />
-  {/await}
+			<Edges color="black" />
+		</T.Mesh>
+	{:catch error}
+		<slot name="error" {error} />
+	{/await}
 
-  <slot {ref} />
+	<slot {ref} />
 </T>

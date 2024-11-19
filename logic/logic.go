@@ -5,7 +5,8 @@ import (
 )
 
 type Position struct {
-	X, Y uint8
+	X uint8 `json:"x"`
+	Y uint8 `json:"y"`
 }
 
 type Direction struct {
@@ -46,7 +47,13 @@ type GameState struct {
 	GraduationChoices Position     `json:"graduationChoices"`
 	ThreeChoices      []Position   `json:"threeChoices"`
 	Winner            uint8        `json:"winner"`
+	Placed            Move         `json:"placed"`
 }
+
+// type Refresh struct {
+// 	Placed NewMove  `json:"placed"`
+// 	Booped []Booped `json:"booped"`
+// }
 
 type Player struct {
 	Kittens uint8 `json:"kittens"`
