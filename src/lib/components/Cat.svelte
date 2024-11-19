@@ -33,7 +33,7 @@ Command: npx @threlte/gltf@2.0.3 cat.glb
 				if (placed) {
 					animate(
 						ref.position,
-						{ y: 0.02 },
+						{ y: 0.52 },
 						{
 							duration: 1,
 							repeat: 0,
@@ -42,7 +42,7 @@ Command: npx @threlte/gltf@2.0.3 cat.glb
 						}
 					);
 				} else {
-					ref.position.y = 0.02;
+					ref.position.y = 0.52;
 				}
 			}}
 		>
