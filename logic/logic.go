@@ -20,6 +20,12 @@ type Booped struct {
 	BoopedBy  uint8     `json:"boopedBy"`
 }
 
+type BoopMovement struct {
+	Position      Position `json:"position"`
+	FinalPosition Position `json:"finalPosition"`
+	Tile          uint8    `json:"tile"`
+}
+
 var directionMap = map[string]Direction{
 	"topLeft":     {-1, -1},
 	"above":       {0, -1},
@@ -43,11 +49,49 @@ type GameState struct {
 	Booped        []Booped `json:"booped,omitempty"`
 	Waiting       bool     `json:"waiting"`
 	//GraduationDecision is the outwardsmost position of a 3 in a row line
-	Lines             [][]Position `json:"lines,omitempty"`
-	GraduationChoices Position     `json:"graduationChoices"`
-	ThreeChoices      []Position   `json:"threeChoices"`
-	Winner            uint8        `json:"winner"`
-	Placed            Move         `json:"placed"`
+	Lines             [][]Position   `json:"lines,omitempty"`
+	GraduationChoices Position       `json:"graduationChoices"`
+	ThreeChoices      []Position     `json:"threeChoices"`
+	Winner            uint8          `json:"winner"`
+	Placed            Move           `json:"placed"`
+	BoopMovement      []BoopMovement `json:"boopMovement"`
+	Original          Board          `json:"original"`
+}
+
+func comparePosition(a, b Position) bool {
+	return a.X == b.X && a.Y == b.Y
+}
+
+func (gameState *GameState) calculateOriginal() {
+	gameState.Original = Board{
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0},
+	}
+	//Remove Placed and BoopMovement from Board and add to Original
+	for y, row := range gameState.Board {
+		for x, boardTile := range row {
+			boardPos := Position{X: uint8(x), Y: uint8(y)}
+			skip := false
+			for _, boopPos := range gameState.BoopMovement {
+				if comparePosition(boardPos, boopPos.FinalPosition) {
+					skip = true
+					break
+				}
+			}
+			if skip {
+				continue
+			}
+			if !comparePosition(boardPos, gameState.Placed.Position) {
+				// fmt.Println("Adding to Original: ", boardPos)
+				gameState.Original[y][x] = boardTile
+			}
+		}
+	}
+	fmt.Print("Original: ", gameState.Original)
 }
 
 // type Refresh struct {
@@ -184,8 +228,9 @@ func (board *Board) adjacencyCheck(newMove Position, gameState *GameState) {
 		}
 	}
 
-	var newBooped = board.boopCheck(booped, gameState)
-	gameState.Booped = newBooped
+	// var newBooped = board.boopCheck(booped, gameState)
+	board.boopCheck(booped, gameState)
+	// gameState.Booped = newBooped
 	// board.threeCheck(newMove, newBooped, gameState)
 	board.checkBoardForThreeInARows(gameState)
 }
@@ -605,7 +650,7 @@ func (board *Board) contentsAtPosition(position Position) uint8 {
 }
 
 // Loop through the booped array and check if the piece is boopable, if so, move off board or to new position
-func (board *Board) boopCheck(booped []Booped, gameState *GameState) (newBooped []Booped) {
+func (board *Board) boopCheck(booped []Booped, gameState *GameState) {
 	for _, piece := range booped {
 
 		//if the piece is a cat and the boopedBy is a kitten, then skip
@@ -637,11 +682,13 @@ func (board *Board) boopCheck(booped []Booped, gameState *GameState) (newBooped 
 			fmt.Printf("The piece %v at position %v is boopable and is pushed\n", piece.Tile, piece.Position)
 			(*board)[piece.Position.Y][piece.Position.X] = 0
 			(*board)[int8(piece.Position.Y)+piece.Direction.Y][int8(piece.Position.X)+piece.Direction.X] = piece.Tile
-			newBooped = append(newBooped, Booped{piece.Direction, Position{piece.Position.X + uint8(piece.Direction.X), piece.Position.Y + uint8(piece.Direction.Y)}, piece.Tile, piece.BoopedBy})
+			// newBooped = append(newBooped, Booped{piece.Direction, Position{piece.Position.X + uint8(piece.Direction.X), piece.Position.Y + uint8(piece.Direction.Y)}, piece.Tile, piece.BoopedBy})
+			gameState.BoopMovement = nil
+			gameState.BoopMovement = append(gameState.BoopMovement, BoopMovement{Position: piece.Position, FinalPosition: Position{piece.Position.X + uint8(piece.Direction.X), piece.Position.Y + uint8(piece.Direction.Y)}, Tile: piece.Tile})
 		}
 		//else it is not boopable - as there is a piece in the way
 	}
-	return newBooped
+	// return newBooped
 }
 
 // if the direction is in the bounds return true/false and what is at that position

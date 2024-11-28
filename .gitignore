@@ -18,6 +18,7 @@ Thumbs.db
 
 /logic/config.json
 /logic/main
+/logic/tmp/*
 /logic/tmp
 
 # Vite

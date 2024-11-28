@@ -5,6 +5,8 @@
     export let piece;
     export let placed;
     export let position;
+    export let finalPosition=[0,0,0];
+    export let booped;
 
     let color:string = "orange";
 
@@ -23,7 +25,7 @@
 </script>
 
 {#if kitten}
-    <Kitten color={color} placed={placed} position={position}/>
+    <Kitten color={color} placed={placed} position={position} finalPosition={finalPosition} booped={booped}/>
 {:else}
-    <Cat color={color} placed={placed} position={position}/>
+    <Cat color={color} placed={placed} position={position} finalPosition={finalPosition} booped={booped}/>
 {/if}

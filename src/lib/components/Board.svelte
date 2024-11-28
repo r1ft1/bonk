@@ -7,7 +7,7 @@
 		Edges,
 	} from "@threlte/extras";
 	import * as THREE from "three";
-	import { gameState, pieceChoice, webSocket } from "./stores.svelte";
+	import { gameState, pieceChoice, webSocket, type ServerMessage } from "./stores.svelte";
 	import Cat from "./Cat.svelte";
 	import Kitten from "./Kitten.svelte";
 	import { GLTFLoader } from "three/examples/jsm/Addons.js";
@@ -34,7 +34,6 @@
 		console.log(color);
 	}
 
-
 	const wsSendMove = (move: THREE.Vector3) => {
 		$webSocket.send(
 			JSON.stringify({
@@ -43,7 +42,24 @@
 			})
 		);
 		console.log(lastMove);
+		console.log($gameState);
 	};
+
+
+	$webSocket.addEventListener("open", function (event) {
+		// $webSocket.send(JSON.stringify({ position: { X: 1, Y: 1 } }));
+	});
+
+	$webSocket.addEventListener("message", function (event) {
+		const msg: ServerMessage = JSON.parse(event.data);
+		if(msg.type != "error"){
+			$gameState = msg.payload;
+		}
+		else {
+			console.log(msg.payload);
+		}
+		console.log($gameState);
+	});
 
 	interactivity();
 
@@ -55,7 +71,7 @@
 	$: {
 		lastMove.x = $gameState.placed.position.x;
 		lastMove.z = $gameState.placed.position.y;
-		console.log("lastmove: ",lastMove, "color: ", color);
+		console.log("lastmove: ", lastMove, "color: ", color);
 	}
 
 	// for (let j = 0; j < $gameState.board.length; j++) {
@@ -83,37 +99,49 @@
 {/await}
 
 <!-- Piece generation from $gameState.board -->
-{#each $gameState.board as row, i}
-	{#each row as cell, j}
-		{#if j == lastMove.x && i == lastMove.z}
-			<Piece piece={$gameState.placed.piece} position={[j - 2.5, 2, i - 2.5]} placed={true}/>
-		{:else if cell == 1}
-			<Kitten
-				position={[j - 2.5, 2, i - 2.5]}
-				color={"orange"}
+
+{#each $gameState.board as row, y}
+	{#each row as piece, x}
+		{#if piece != 0}
+			<Piece
+				{piece}
+				position={[x - 2.5, 0.52, y - 2.5]}  
 				placed={false}
-			/>
-		{:else if cell == 8}
-			<Kitten
-				position={[j - 2.5, 0, i - 2.5]}
-				color={"lightblue"}
-				placed={false}
-			/>
-		{:else if cell == 2}
-			<Cat
-				position={[j - 2.5, 0, i - 2.5]}
-				color={"orange"}
-				placed={false}
-			/>
-		{:else if cell == 9}
-			<Cat
-				position={[j - 2.5, 0, i - 2.5]}
-				color={"lightblue"}
-				placed={false}
+				booped={false}
 			/>
 		{/if}
 	{/each}
 {/each}
+
+<!-- {#if $gameState.boopMovement != null}
+	{#each $gameState.boopMovement as boopedPiece}
+		<Piece
+			booped={true}
+			piece={boopedPiece.piece}
+			position={[
+				boopedPiece.position.x - 2.5,
+				0.52,
+				boopedPiece.position.y - 2.5,
+			]}
+			placed={false}
+			finalPosition={[
+				boopedPiece.finalPosition.x - 2.5,
+				0.52,
+				boopedPiece.finalPosition.y - 2.5,
+			]}
+		/>
+	{/each}
+{/if} -->
+<!-- <Piece
+	piece={$gameState.placed.piece}
+	position={[
+		$gameState.placed.position.x - 2.5,
+		2,
+		$gameState.placed.position.y - 2.5,
+	]}
+	placed={true}
+	booped={false}
+/> -->
 
 <!-- Invisible Ground Plane -->
 <T.Mesh

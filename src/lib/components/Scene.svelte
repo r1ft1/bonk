@@ -6,7 +6,8 @@
 	import Logo from "./Logo.svelte";
 	import { Stars } from "@threlte/extras";
 	import { gameState } from "./stores.svelte";
-
+	import { inGame } from "./stores.svelte";
+	import GameInfo from "./GameInfo.svelte";
 	const { camera, renderMode } = useThrelte();
 	renderMode.set("always");
 </script>
@@ -39,6 +40,7 @@
 	<Logo text={"Player 2 Wins!"} position={[-4, 1, 0]} />
 {/if}
 
-<Board />
-
+{#if $inGame}
+	<Board />
+{/if}
 <Stars />

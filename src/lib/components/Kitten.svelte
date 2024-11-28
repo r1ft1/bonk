@@ -8,6 +8,7 @@ Command: npx @threlte/gltf@2.0.3 kitten.glb
 	import { T, forwardEventHandlers } from "@threlte/core";
 	import { useGltf, Outlines } from "@threlte/extras";
 	import { animate } from "motion";
+	import { gameState } from "./stores.svelte";
 
 	export const ref = new Group();
 
@@ -17,12 +18,49 @@ Command: npx @threlte/gltf@2.0.3 kitten.glb
 
 	export let color;
 	export let placed: boolean;
-  export let position;
+	export let position;
+	export let booped: boolean = false;
+	export let finalPosition = [0, 0, 0];
+	let kittenRef: any;
 
+	console.log($gameState.placed.position, position[0], position.z);
+
+	$: if ($gameState.placed.position.x == position[0] + 2.5 && $gameState.placed.position.y == position[2] + 2.5) {
+		console.log("animate kitten placement: ")
+		ref.position.y = 1.52;
+		animate(
+			ref.position,
+			{ y: 0.02 },
+			{
+				duration: 1,
+				repeat: 0,
+				ease: "backInOut",
+				type: "spring",
+			}
+		);
+	}
+
+	$: {
+		if (booped) {
+			ref.position.y = position[1];
+			ref.position.x = position[0]+2.5;
+			ref.position.z = position[2]+2.5;
+			animate(
+				ref.position,
+				{ x: finalPosition[0], y: finalPosition[1], z: finalPosition[2] },
+				{
+					duration: 1,
+					repeat: 0,
+					ease: "backInOut",
+					type: "spring",
+				}
+			);
+		}
+	}
 	// function rad(degrees: number) {
 	// 	return degrees * (Math.PI / 180);
 	// }
-  console.log(ref);
+	console.log(ref);
 </script>
 
 <T is={ref} dispose={false} {...$$restProps} bind:this={$component}>
@@ -33,26 +71,12 @@ Command: npx @threlte/gltf@2.0.3 kitten.glb
 			geometry={gltf.nodes.Kitten.geometry}
 			material={gltf.nodes.Kitten.material}
 			position={position}
-      scale={[0.5, 0.5, 0.5]}
+			scale={[0.5, 0.5, 0.5]}
 			on:create={({ ref }) => {
-				if (placed) {
-					animate(
-						ref.position,
-						{ y: 0.52 },
-						{
-							duration: 1,
-							repeat: 0,
-							ease: "backInOut",
-							type: "spring",
-						}
-					);
-				}
-        else {
-          ref.position.y = 0.52;
-        }
+				kittenRef = ref;
 			}}
 		>
-			<T.MeshStandardMaterial color={color} />
+			<T.MeshStandardMaterial {color} />
 			<Outlines color="black" />
 		</T.Mesh>
 	{:catch error}

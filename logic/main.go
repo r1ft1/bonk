@@ -41,9 +41,9 @@ type Move struct {
 }
 
 type Server struct {
-	serverMutex sync.Mutex
-	games       map[string]*Game
-	waitingGame *Game
+	serverMutex  sync.Mutex
+	games        map[string]*Game
+	waitingGames map[string]*Game
 }
 
 type Game struct {
@@ -72,7 +72,8 @@ var upgrader = websocket.Upgrader{
 
 func NewServer() *Server {
 	return &Server{
-		games: make(map[string]*Game),
+		games:        make(map[string]*Game),
+		waitingGames: make(map[string]*Game),
 	}
 }
 
@@ -84,39 +85,36 @@ func NewGame() *Game {
 	}
 }
 
-func (gs *Server) assignPlayerToGame(conn *websocket.Conn, requestedGameID string) (*Game, string) {
-	gs.serverMutex.Lock()
-	defer gs.serverMutex.Unlock()
+func (server *Server) createGame(conn *websocket.Conn) *Game {
+	server.serverMutex.Lock()
+	defer server.serverMutex.Unlock()
+
+	game := NewGame()
+	game.Players["player1"] = conn
+	server.games[game.ID] = game
+	server.waitingGames[game.ID] = game
+	fmt.Println(server.waitingGames)
+	return game
+}
+
+func (server *Server) joinGame(conn *websocket.Conn, requestedGameID string) *Game {
+	server.serverMutex.Lock()
+	defer server.serverMutex.Unlock()
 
 	// If specific game requested
 	if requestedGameID != "" {
-		if game, exists := gs.games[requestedGameID]; exists {
+		if game, exists := server.waitingGames[requestedGameID]; exists {
 			if len(game.Players) < 2 {
 				playerID := fmt.Sprintf("player%d", len(game.Players)+1)
 				game.Players[playerID] = conn
-				return game, playerID
+				delete(server.waitingGames, game.ID)
+				return game
 			}
-			return nil, "" // Game full
+			return nil // Game full
 		}
-		return nil, "" // Game not found
+		return nil // Game not found
 	}
-
-	// Join or create waiting game
-	if gs.waitingGame == nil {
-		gs.waitingGame = NewGame()
-		gs.games[gs.waitingGame.ID] = gs.waitingGame
-	}
-
-	game := gs.waitingGame
-	playerID := fmt.Sprintf("player%d", len(game.Players)+1)
-	game.Players[playerID] = conn
-
-	// If game is now full, clear waiting game
-	if len(game.Players) == 2 {
-		gs.waitingGame = nil
-	}
-
-	return game, playerID
+	return nil // No game ID provided
 }
 
 func (s *Server) handleConnection(w http.ResponseWriter, r *http.Request) {
@@ -127,13 +125,22 @@ func (s *Server) handleConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	game, playerID := s.assignPlayerToGame(conn, r.URL.Query().Get("gameId"))
-	if game == nil {
-		conn.WriteJSON(Message{Type: "error", Payload: "Could not join game"})
-		conn.Close()
-		return
-	}
+	var gameID = r.URL.Query().Get("gameID")
+	var game *Game
+	var playerID string
 
+	if gameID == "" {
+		game = s.createGame(conn)
+		playerID = "player1"
+	} else {
+		game = s.joinGame(conn, gameID)
+		playerID = "player2"
+		if game == nil {
+			conn.WriteJSON(Message{Type: "error", Payload: "Could not join game"})
+			conn.Close()
+			return
+		}
+	}
 	// Send initial game state
 	if err := conn.WriteJSON(Message{
 		Type:     "joined",
@@ -158,6 +165,10 @@ func (s *Server) handleGameLoop(conn *websocket.Conn, game *Game, playerID strin
 	for {
 		var newMove NewMove
 		if err := conn.ReadJSON(&newMove); err != nil {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				log.Printf("unexpected websocket close, error: %v", err)
+				s.handlePlayerDisconnect(game.ID, playerID)
+			}
 			log.Printf("Read error from %s: %v", playerID, err)
 			return
 		}
@@ -215,6 +226,7 @@ func (s *Server) processTurn(conn *websocket.Conn, game *Game, newMove *NewMove)
 		return fmt.Errorf("invalid move: %w", err)
 	}
 	game.GameState.Placed = Move{Position: newMove.Position, Piece: piece}
+	game.GameState.calculateOriginal()
 	s.broadcastGameState(game, true)
 
 	// Handle graduation logic
@@ -247,10 +259,24 @@ func (s *Server) shouldCheckMaxedOut(game *Game) bool {
 		(!game.GameState.isPlayer1() && game.GameState.P2.Placed == 8)
 }
 
+func getPlayerIDFromMap(m map[string]*websocket.Conn, conn *websocket.Conn) string {
+	for playerID, c := range m {
+		if c == conn {
+			return playerID
+		}
+	}
+	return ""
+}
+
 func (s *Server) handleMultipleGraduations(conn *websocket.Conn, game *Game) error {
+	playerID := getPlayerIDFromMap(game.Players, conn)
 	for game.GameState.Waiting {
 		var selection NewMove
 		if err := conn.ReadJSON(&selection); err != nil {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				log.Printf("unexpected websocket close, error: %v", err)
+				s.handlePlayerDisconnect(game.ID, playerID)
+			}
 			return fmt.Errorf("failed to read graduation selection: %w", err)
 		}
 
@@ -274,6 +300,10 @@ func (s *Server) handleMaxedOutGraduation(conn *websocket.Conn, game *Game) erro
 	for game.GameState.Waiting {
 		var selection NewMove
 		if err := conn.ReadJSON(&selection); err != nil {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				log.Printf("unexpected websocket close, error: %v", err)
+				s.handlePlayerDisconnect(game.ID, getPlayerIDFromMap(game.Players, conn))
+			}
 			return fmt.Errorf("failed to read maxed out graduation selection: %w", err)
 		}
 
@@ -326,9 +356,6 @@ func (s *Server) handlePlayerDisconnect(gameID string, playerID string) {
 
 	if len(game.Players) == 0 {
 		delete(s.games, gameID)
-		if s.waitingGame == game {
-			s.waitingGame = nil
-		}
 		return
 	}
 
@@ -351,9 +378,33 @@ func enableCors(w *http.ResponseWriter) {
 	(*w).Header().Set("Access-Control-Allow-Headers", "Content-Type")
 }
 
+func (s *Server) handleGetWaitingGameID(w http.ResponseWriter, r *http.Request) {
+	enableCors(&w)
+	s.serverMutex.Lock()
+	defer s.serverMutex.Unlock()
+
+	//Send list of waiting game IDs to client
+	type GameIDs struct {
+		IDs []string `json:"ids"`
+	}
+	var IDs GameIDs
+	if len(s.waitingGames) != 0 {
+		for id := range s.waitingGames {
+			IDs.IDs = append(IDs.IDs, id)
+		}
+	} else {
+		IDs.IDs = append(IDs.IDs, "No games waiting")
+	}
+	jsonID, _ := json.Marshal(IDs)
+	fmt.Printf(string(jsonID))
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(jsonID)
+}
+
 func main() {
 	server := NewServer()
 	http.HandleFunc("/ws", server.handleConnection)
+	http.HandleFunc("/getWaitingGame", server.handleGetWaitingGameID)
 
 	log.Println("Server starting on :8080")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
