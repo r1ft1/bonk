@@ -7,7 +7,12 @@
 		Edges,
 	} from "@threlte/extras";
 	import * as THREE from "three";
-	import { gameState, pieceChoice, webSocket, type ServerMessage } from "./stores.svelte";
+	import {
+		gameState,
+		pieceChoice,
+		webSocket,
+		type ServerMessage,
+	} from "./stores.svelte";
 	import Cat from "./Cat.svelte";
 	import Kitten from "./Kitten.svelte";
 	import { GLTFLoader } from "three/examples/jsm/Addons.js";
@@ -39,26 +44,14 @@
 			JSON.stringify({
 				position: { x: move.x + 2.5, y: move.z + 2.5 },
 				piece: $pieceChoice,
-			})
+			}),
 		);
 		console.log(lastMove);
 		console.log($gameState);
 	};
 
-
 	$webSocket.addEventListener("open", function (event) {
 		// $webSocket.send(JSON.stringify({ position: { X: 1, Y: 1 } }));
-	});
-
-	$webSocket.addEventListener("message", function (event) {
-		const msg: ServerMessage = JSON.parse(event.data);
-		if(msg.type != "error"){
-			$gameState = msg.payload;
-		}
-		else {
-			console.log(msg.payload);
-		}
-		console.log($gameState);
 	});
 
 	interactivity();
@@ -84,7 +77,8 @@
 	let time = 0;
 	useTask((delta) => {
 		time += delta;
-		(highlightMesh.material as THREE.Material).opacity = 1 + Math.sin(time);
+		(highlightMesh.material as THREE.Material).opacity =
+			1 + Math.sin(time);
 	});
 </script>
 
@@ -105,7 +99,7 @@
 		{#if piece != 0}
 			<Piece
 				{piece}
-				position={[x - 2.5, 0.52, y - 2.5]}  
+				position={[x - 2.5, 0.52, y - 2.5]}
 				placed={false}
 				booped={false}
 			/>
@@ -158,7 +152,7 @@
 			highlightMesh.position.set(
 				Math.floor(x) + 0.5,
 				0.01,
-				Math.floor(z) + 0.5
+				Math.floor(z) + 0.5,
 			);
 		}
 

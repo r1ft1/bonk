@@ -20,6 +20,7 @@ Thumbs.db
 /logic/main
 /logic/tmp/*
 /logic/tmp
+/tmp/*
 
 # Vite
 vite.config.js.timestamp-*
