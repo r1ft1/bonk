@@ -29,15 +29,25 @@
             }
             if (msg.type != "error") {
                 $gameState = msg.payload;
+                console.log($gameState);
             } else {
                 console.log(msg.payload);
             }
-            console.log($gameState);
         });
     };
 
     const createGame = async () => {
         $webSocket = new WebSocket("ws://localhost:8080/ws");
+        $webSocket.addEventListener("message", function (event) {
+            const msg: ServerMessage = JSON.parse(event.data);
+            if (msg.type != "error") {
+                $gameState = msg.payload;
+                console.log($gameState);
+            } else {
+                console.log(msg.payload);
+            }
+        });
+
         $inGame = true;
     };
 </script>
