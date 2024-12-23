@@ -60,6 +60,7 @@ type Message struct {
 	Type     string      `json:"type"`
 	GameID   string      `json:"gameId"`
 	PlayerID string      `json:"playerId"`
+	State    string      `json:"state"`
 	Payload  interface{} `json:"payload"`
 }
 
@@ -122,7 +123,10 @@ func (server *Server) joinGame(conn *websocket.Conn, requestedGameID string) *Ga
 	return nil // No game ID provided
 }
 
-func (game *Game) writePump(conn *websocket.Conn, playerID string, s *Server) {
+// Any WriteJSON call will only be called from here
+func (game *Game) writePump(conn *websocket.Conn, playerID string, s *Server, wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	for {
 		select {
 		case msg, ok := <-game.send:
@@ -131,10 +135,12 @@ func (game *Game) writePump(conn *websocket.Conn, playerID string, s *Server) {
 				return
 			}
 			if msg.Type == "error" {
+				game.mutex.Lock()
 				if err := conn.WriteJSON(msg); err != nil {
 					log.Printf("Failed to write error message to %s: %v", playerID, err)
 					s.handlePlayerDisconnect(game.ID, playerID)
 				}
+				game.mutex.Unlock()
 			}
 			if msg.Type == "gameState" {
 				game.mutex.Lock()
@@ -153,60 +159,111 @@ func (game *Game) writePump(conn *websocket.Conn, playerID string, s *Server) {
 	}
 }
 
-func (game *Game) readPump(conn *websocket.Conn, playerID string, s *Server) {
-	log.Printf("ReadPump: Player %s connected to game %s", playerID, game.ID)
+func readMove(conn *websocket.Conn, playerID string, game *Game, s *Server) (error, Message, *NewMove) {
+	var newMove NewMove
 	errMsg := Message{
 		Type:    "error",
 		GameID:  game.ID,
-		Payload: "",
+		Payload: "Failed to read move",
+		State:   game.State,
 	}
-	for {
-		var newMove NewMove
-		if err := conn.ReadJSON(&newMove); err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("unexpected websocket close, error: %v", err)
-				s.handlePlayerDisconnect(game.ID, playerID)
-			}
-			errMsg.Payload = "Failed to read move"
-			game.send <- errMsg
-			log.Printf("Read error from %s: %v", playerID, err)
-			return
+
+	if err := conn.ReadJSON(&newMove); err != nil {
+		if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+			log.Printf("unexpected websocket close, error: %v", err)
+			s.handlePlayerDisconnect(game.ID, playerID)
 		}
 
-		if !s.isValidTurn(game, playerID) {
-			errMsg.Payload = "Not your turn"
-			game.send <- errMsg
-			continue // Continue waiting for valid turn instead of disconnecting
-		}
+		game.send <- errMsg
+		log.Printf("Read error from %s: %v", playerID, err)
+		return err, errMsg, nil
+	}
+
+	if !s.isValidTurn(game, playerID) {
+		errMsg.Payload = "Not your turn"
+		game.send <- errMsg
+		log.Printf("Not your turn %s", playerID)
+		return fmt.Errorf("Not your turn"), errMsg, &newMove
+	}
+
+	return nil, Message{}, &newMove
+}
+
+// Any ReadJSON call will only be called from here
+func (game *Game) readPump(conn *websocket.Conn, playerID string, s *Server, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	log.Printf("ReadPump: Player %s connected to game %s", playerID, game.ID)
+	// errMsg := Message{
+	// 	Type:    "error",
+	// 	GameID:  game.ID,
+	// 	Payload: "",
+	// 	State:   "",
+	// }
+	for {
+
+		// if err := conn.ReadJSON(&newMove); err != nil {
+		// 	if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+		// 		log.Printf("unexpected websocket close, error: %v", err)
+		// 		s.handlePlayerDisconnect(game.ID, playerID)
+		// 	}
+		// 	errMsg.Payload = "Failed to read move"
+		// 	errMsg.State = game.State
+		// 	game.send <- errMsg
+		// 	log.Printf("Read error from %s: %v", playerID, err)
+		// 	return
+		// }
+
+		// if !s.isValidTurn(game, playerID) {
+		// 	errMsg.Payload = "Not your turn"
+		// 	errMsg.State = game.State
+		// 	game.send <- errMsg
+		// 	continue // Continue waiting for valid turn instead of disconnecting
+		// }
 
 		switch game.State {
 		case "WAITING":
-			if err := s.processTurn(conn, game, &newMove); err != nil {
+			err, errMsg, newMove := readMove(conn, playerID, game, s)
+			if err != nil {
+				continue
+			}
+			if err := s.processTurn(conn, game, newMove); err != nil {
 				errMsg.Payload = err.Error()
+				errMsg.State = game.State
 				game.send <- errMsg
 				continue
 			}
-			//If the state didn't get changed then turn was completed, increment turn number
-			// if game.State == "WAITING" {
-			// 	game.GameState.TurnNumber++
-			// }
 
 		case "MULTIPLE_WAITING":
-			if err := s.handleMultipleGraduations(conn, game, &newMove); err != nil {
+			log.Println("ReadPump: MULTIPLE_WAITING")
+			err, errMsg, newMove := readMove(conn, playerID, game, s)
+			if err != nil {
+				continue
+			}
+			if err := s.handleMultipleGraduations(conn, game, newMove); err != nil {
 				errMsg.Payload = err.Error()
+				errMsg.State = game.State
 				game.send <- errMsg
 				continue
 			}
 
 		case "MAX_WAITING":
-			if err := s.handleMaxedOutGraduation(conn, game, &newMove); err != nil {
+			log.Println("ReadPump: MAX_WAITING")
+			err, errMsg, newMove := readMove(conn, playerID, game, s)
+			if err != nil {
+				continue
+			}
+			if err := s.handleMaxedOutGraduation(conn, game, newMove); err != nil {
 				errMsg.Payload = err.Error()
+				errMsg.State = game.State
 				game.send <- errMsg
 				continue
 			}
 
 		}
-		game.GameState.TurnNumber++
+		if game.State == "WAITING" {
+			game.GameState.TurnNumber++
+		}
 		// Broadcast updated state to all players
 		s.broadcastGameState(game, false)
 	}
@@ -222,8 +279,8 @@ func (s *Server) handleGameLoop(conn *websocket.Conn, game *Game, playerID strin
 
 	wg.Add(2)
 
-	go game.readPump(conn, playerID, s)
-	go game.writePump(conn, playerID, s)
+	go game.readPump(conn, playerID, s, &wg)
+	go game.writePump(conn, playerID, s, &wg)
 
 	wg.Wait()
 
@@ -279,13 +336,11 @@ func (s *Server) processTurn(conn *websocket.Conn, game *Game, newMove *NewMove)
 			if game.GameState.Board.winCheckMaxCats(game.GameState) {
 				return nil
 			}
-			// game.GameState.Waiting = true
 			game.State = "MAX_WAITING"
 			// if err := s.handleMaxedOutGraduation(conn, game); err != nil {
 			// 	return err
 			// }
 		}
-		// game.GameState.TurnNumber++
 	}
 
 	return nil
@@ -306,15 +361,6 @@ func getPlayerIDFromMap(m map[string]*websocket.Conn, conn *websocket.Conn) stri
 }
 
 func (s *Server) handleMultipleGraduations(conn *websocket.Conn, game *Game, selection *NewMove) error {
-	// playerID := getPlayerIDFromMap(game.Players, conn)
-	// var selection NewMove
-	// if err := conn.ReadJSON(&selection); err != nil {
-	// 	if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-	// 		log.Printf("Error: HandleMultipleGraduatios: unexpected websocket close, error: %v", err)
-	// 		s.handlePlayerDisconnect(game.ID, playerID)
-	// 	}
-	// 	return fmt.Errorf("Error: HandleMultipleGraduations: failed to read graduation selection: %w", err)
-	// }
 
 	if !slices.Contains(game.GameState.ThreeChoices, selection.Position) {
 		return fmt.Errorf("Error: HandleMultipleGraduations: The position selected is not a valid graduation piece")
@@ -326,22 +372,19 @@ func (s *Server) handleMultipleGraduations(conn *websocket.Conn, game *Game, sel
 	}
 
 	game.GameState.Board.graduatePieces(line, game.GameState)
-	// game.GameState.TurnNumber++
-	// game.GameState.Waiting = false
 	game.State = "WAITING"
 	return nil
 }
 
 func (s *Server) handleMaxedOutGraduation(conn *websocket.Conn, game *Game, selection *NewMove) error {
-
+	log.Println("handleMaxedGrad: Called")
 	playerPieces := game.GameState.Board.getPlayerPiecePositions(game.GameState)
 	if !slices.Contains(playerPieces, selection.Position) {
 		return fmt.Errorf("Error: HandleMaxedOutGraduation: The position selected is not a valid graduation piece")
 	}
 
 	game.GameState.Board.graduatePiece(selection.Position, game.GameState)
-	// game.GameState.TurnNumber++
-	// game.GameState.Waiting = false
+	log.Println("handleMaxedGrad is changing the State to WAITING")
 	game.State = "WAITING"
 
 	return nil
@@ -352,6 +395,7 @@ func (s *Server) broadcastGameState(game *Game, alreadyLocked bool) {
 		Type:    "gameState",
 		GameID:  game.ID,
 		Payload: game.GameState,
+		State:   game.State,
 	}
 
 	game.send <- stateMsg

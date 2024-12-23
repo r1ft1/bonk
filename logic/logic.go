@@ -91,7 +91,7 @@ func (gameState *GameState) calculateOriginal() {
 			}
 		}
 	}
-	fmt.Print("Original: ", gameState.Original)
+	// fmt.Print("Original: ", gameState.Original)
 }
 
 // type Refresh struct {
@@ -214,16 +214,16 @@ func (board *Board) adjacencyCheck(newMove Position, gameState *GameState) {
 	//slice of booped pieces ie reference to an array of booped pieces
 	var booped []Booped
 
-	fmt.Printf("Checking for adjacency at position %v\n", newMove)
+	// fmt.Printf("Checking for adjacency at position %v\n", newMove)
 
-	for directionName, direction := range directionMap {
+	for _, direction := range directionMap {
 		// fmt.Printf("key[%v], value[%v]\n", directionName, direction)
 
 		if isInBounds, contentsAtPosition := board.isDirectionInBounds(newMove, direction); isInBounds {
 			//can move this if we return whether the direction is in bounds AND on an empty square
 			if contentsAtPosition != 0 {
 				booped = append(booped, Booped{direction, Position{newMove.X + uint8(direction.X), newMove.Y + uint8(direction.Y)}, (*board)[int8(newMove.Y)+direction.Y][int8(newMove.X)+direction.X], (*board)[int8(newMove.Y)][int8(newMove.X)]})
-				fmt.Printf("There is something to the %v\n", directionName)
+				// fmt.Printf("There is something to the %v\n", directionName)
 			}
 		}
 	}
@@ -362,7 +362,7 @@ func (board *Board) checkBoardForThreeInARows(gameState *GameState) {
 			}
 		}
 	}
-	fmt.Println("Lines found on the board: ", gameState.Lines, "Three choices: ", gameState.ThreeChoices)
+	// fmt.Println("Lines found on the board: ", gameState.Lines, "Three choices: ", gameState.ThreeChoices)
 }
 
 // // Check if a line of 3 positions contains a valid 3 in a row of pieces from the same player
@@ -679,7 +679,7 @@ func (board *Board) boopCheck(booped []Booped, gameState *GameState) {
 		}
 		//if the piece's direction is in bounds and the outome square is empty - then it is boopable
 		if isInBounds && outcomePositionContents == 0 {
-			fmt.Printf("The piece %v at position %v is boopable and is pushed\n", piece.Tile, piece.Position)
+			// fmt.Printf("The piece %v at position %v is boopable and is pushed\n", piece.Tile, piece.Position)
 			(*board)[piece.Position.Y][piece.Position.X] = 0
 			(*board)[int8(piece.Position.Y)+piece.Direction.Y][int8(piece.Position.X)+piece.Direction.X] = piece.Tile
 			// newBooped = append(newBooped, Booped{piece.Direction, Position{piece.Position.X + uint8(piece.Direction.X), piece.Position.Y + uint8(piece.Direction.Y)}, piece.Tile, piece.BoopedBy})
