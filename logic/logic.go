@@ -40,14 +40,15 @@ var directionMap = map[string]Direction{
 type Board [6][6]uint8
 
 type GameState struct {
-	TurnNumber    uint8  `json:"turnNumber"`
-	PlayerTurn    uint8  `json:"playerTurn"`
-	Board         Board  `json:"board"`
-	P1            Player `json:"p1"`
-	P2            Player `json:"p2"`
-	previousBoard Board
-	Booped        []Booped `json:"booped,omitempty"`
-	Waiting       bool     `json:"waiting"`
+	TurnNumber uint8  `json:"turnNumber"`
+	PlayerTurn uint8  `json:"playerTurn"`
+	Board      Board  `json:"board"`
+	P1         Player `json:"p1"`
+	P2         Player `json:"p2"`
+	// previousBoard Board
+	State  string   `json:"state"`
+	Booped []Booped `json:"booped,omitempty"`
+	// Waiting       bool     `json:"waiting"`
 	//GraduationDecision is the outwardsmost position of a 3 in a row line
 	Lines             [][]Position   `json:"lines,omitempty"`
 	GraduationChoices Position       `json:"graduationChoices"`
@@ -109,6 +110,7 @@ func NewGameState() *GameState {
 	gameState := new(GameState)
 
 	gameState.TurnNumber = 0
+	gameState.State = "WAITING"
 
 	gameState.Board = Board{
 		{0, 0, 0, 0, 0, 0},
@@ -118,14 +120,14 @@ func NewGameState() *GameState {
 		{0, 0, 0, 0, 0, 0},
 		{0, 0, 0, 0, 0, 0},
 	}
-	gameState.previousBoard = Board{
-		{0, 0, 0, 0, 0, 0},
-		{0, 0, 0, 0, 0, 0},
-		{0, 0, 0, 0, 0, 0},
-		{0, 0, 0, 0, 0, 0},
-		{0, 0, 0, 0, 0, 0},
-		{0, 0, 0, 0, 0, 0},
-	}
+	// gameState.previousBoard = Board{
+	// 	{0, 0, 0, 0, 0, 0},
+	// 	{0, 0, 0, 0, 0, 0},
+	// 	{0, 0, 0, 0, 0, 0},
+	// 	{0, 0, 0, 0, 0, 0},
+	// 	{0, 0, 0, 0, 0, 0},
+	// 	{0, 0, 0, 0, 0, 0},
+	// }
 	gameState.P1 = Player{Kittens: 8, Cats: 0, Placed: 0}
 	gameState.P2 = Player{Kittens: 8, Cats: 0, Placed: 0}
 
@@ -148,7 +150,7 @@ func (board *Board) move(position Position, tile uint8, gameState *GameState) er
 		return fmt.Errorf("can't place piece. You have no more pieces of this type")
 	}
 
-	gameState.previousBoard = gameState.Board
+	// gameState.previousBoard = gameState.Board
 
 	(*board)[position.Y][position.X] = tile
 
@@ -302,30 +304,6 @@ func (board *Board) isMiddleOfThreeInARow(position Position) []Position {
 	return nil
 }
 
-// func (gameState *GameState) checkLeftOverLines() {
-// 	// Check if there are any lines from the previous turn that still exist at the end of the current turn
-// 	// If a line is no longer valid, remove it from the gameState
-// 	// player1Lines := 0
-// 	// player2Lines := 0
-// 	for i, line := range gameState.Lines {
-// 		if !gameState.Board.isValidThreeInARow(line) {
-// 			gameState.Lines = append(gameState.Lines[:i], gameState.Lines[i+1:]...)
-// 		} else {
-// 			// Check who the line belongs to and graduate the pieces if it is the player's turn and it's the only option or add it to graduation options
-// 			linePlayer, err := gameState.Board.checkLinePlayer(line, gameState)
-// 			if err != nil {
-// 				fmt.Println(err)
-// 			}
-// 			if gameState.isPlayer1() && linePlayer == 1 {
-// 				gameState.Board.graduatePieces(line, gameState)
-// 			} else if !gameState.isPlayer1() && linePlayer == 2 {
-// 				gameState.Board.graduatePieces(line, gameState)
-// 			}
-// 		}
-// 	}
-
-// }
-
 func (board *Board) checkBoardForThreeInARows(gameState *GameState) {
 	// Use a map to track unique lines
 	uniqueLines := make(map[string]bool)
@@ -363,121 +341,16 @@ func (board *Board) checkBoardForThreeInARows(gameState *GameState) {
 		}
 	}
 	// fmt.Println("Lines found on the board: ", gameState.Lines, "Three choices: ", gameState.ThreeChoices)
+
 }
-
-// // Check if a line of 3 positions contains a valid 3 in a row of pieces from the same player
-// func (board *Board) isValidThreeInARow(line []Position) bool {
-// 	if len(line) != 3 {
-// 		return false
-// 	}
-
-// 	// Helper function to check if a tile belongs to player 1 or player 2
-// 	isPlayer1Piece := func(tile uint8) bool {
-// 		return tile == 1 || tile == 2
-// 	}
-
-// 	isPlayer2Piece := func(tile uint8) bool {
-// 		return tile == 8 || tile == 9
-// 	}
-
-// 	// Get the tile at the first position
-// 	firstTile := (*board)[line[0].Y][line[0].X]
-
-// 	// Determine the player based on the first tile
-// 	var isPlayerPiece func(uint8) bool
-// 	if isPlayer1Piece(firstTile) {
-// 		isPlayerPiece = isPlayer1Piece
-// 	} else if isPlayer2Piece(firstTile) {
-// 		isPlayerPiece = isPlayer2Piece
-// 	} else {
-// 		return false
-// 	}
-
-// 	// Check if all positions in the line belong to the same player
-// 	for _, position := range line {
-// 		tile := (*board)[position.Y][position.X]
-// 		if !isPlayerPiece(tile) {
-// 			return false
-// 		}
-// 	}
-
-// 	return true
-// }
-
-// // Check if 3 Kittens or Cats in a row
-// func (board *Board) threeCheck(newMove Position, booped []Booped, gameState *GameState) {
-// 	//check the 9 3x3 grid around 1) the new move 2) the booped pieces
-// 	//these above can either be in the middle of the 3 in a row or at the end
-
-// 	// var tiles uint8 = 5
-
-// 	//Holds the outwardsmost position of the 3 in a rows
-// 	var threeChoices []Position
-// 	var lines [][]Position
-
-// 	// if gameState.isPlayer1() {
-// 	// 	tiles = 1
-// 	// } else {
-// 	// 	tiles = 8
-// 	// }
-
-// 	positionsToCheck := []Position{newMove}
-// 	for _, boopedPieces := range booped {
-// 		positionsToCheck = append(positionsToCheck, boopedPieces.Position)
-// 	}
-// 	// positionsToCheck = append(positionsToCheck, newMove)
-// 	fmt.Printf("Checking for 3 in a row on positions: %v\n", positionsToCheck)
-
-// 	for _, position := range positionsToCheck {
-// 		if line := board.isMiddleOfThreeInARow(position); line != nil {
-// 			lines = append(lines, line)
-// 			threeChoices = append(threeChoices, Position{position.X, position.Y})
-// 		}
-// 		//Checks if position is at the end of a 3 in a row
-// 		for _, direction := range directionMap {
-// 			fmt.Printf("Checking position %v, direction %v\n", position, direction)
-// 			// var contentsAtPosition = board.contentsAtPosition(position)
-// 			var line []Position = []Position{position, position.positionAtDirection(direction), position.positionAtDirection(Direction{direction.X * 2, direction.Y * 2})}
-// 			//if the direction is in bounds AND the direct * 2 is in bounds
-// 			is1InBounds, _ := board.isDirectionInBounds(position, direction)
-// 			is2InBounds, _ := board.isDirectionInBounds(position, Direction{direction.X * 2, direction.Y * 2})
-// 			// fmt.Printf("Checking position %v, direction %v, outcome1 %v, outcome2 %v\n", position, direction, outcomePositionContents1, outcomePositionContents2)
-// 			if is1InBounds && is2InBounds && board.isValidThreeInARow(line) {
-// 				lines = append(lines, line)
-// 				threeChoices = append(threeChoices, Position{position.X + uint8(direction.X*2), position.Y + uint8(direction.Y*2)})
-// 			}
-// 		}
-// 	}
-// 	for _, line := range lines {
-// 		board.winCheck(line)
-// 	}
-// 	if len(lines) > 1 {
-// 		gameState.Waiting = true
-// 		gameState.Lines = lines
-// 		gameState.ThreeChoices = threeChoices
-
-// 		// Only auto graduate a line if it is the player's turn and the line is their color
-// 	} else if len(lines) == 1 {
-// 		linePlayer, err := board.checkLinePlayer(lines[0], gameState)
-// 		if err != nil {
-// 			fmt.Println(err)
-// 		}
-// 		if gameState.isPlayer1() && linePlayer == 1 {
-// 			board.graduatePieces(lines[0], gameState)
-// 		} else if !gameState.isPlayer1() && linePlayer == 2 {
-// 			board.graduatePieces(lines[0], gameState)
-// 		}
-// 	}
-
-// }
 
 func (board *Board) winCheck(line []Position, gameState *GameState) {
 	//check if a player has won, if 3 Cats are in a row
 	//if the 3 Cats are in a row, then the player has won
-	fmt.Println("Checking for a win")
+	// fmt.Println("Checking for a win")
 	countCats := 0
 	for _, position := range line {
-		fmt.Println("Checking position: ", position, "Contents: ", (*board)[position.Y][position.X])
+		// fmt.Println("Checking position: ", position, "Contents: ", (*board)[position.Y][position.X])
 		if (*board)[position.Y][position.X] == 2 || (*board)[position.Y][position.X] == 9 {
 			countCats++
 			fmt.Println("count cats: ", countCats)

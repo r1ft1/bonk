@@ -13,9 +13,6 @@
 		webSocket,
 		type ServerMessage,
 	} from "./stores.svelte";
-	import Cat from "./Cat.svelte";
-	import Kitten from "./Kitten.svelte";
-	import { GLTFLoader } from "three/examples/jsm/Addons.js";
 	import { animate } from "motion";
 	import Piece from "./Piece.svelte";
 
@@ -50,13 +47,13 @@
 		console.log($gameState);
 	};
 
-	$webSocket.addEventListener("open", function (event) {
-		// $webSocket.send(JSON.stringify({ position: { X: 1, Y: 1 } }));
-	});
+	//$webSocket.addEventListener("open", function (event) {
+	//	// $webSocket.send(JSON.stringify({ position: { X: 1, Y: 1 } }));
+	//});
 
 	interactivity();
 
-	const { camera, scene, renderMode, autoRender } = useThrelte();
+	//const { camera, scene, renderMode, autoRender } = useThrelte();
 
 	let planeMesh: THREE.Mesh;
 	let highlightMesh: THREE.Mesh;
@@ -67,6 +64,52 @@
 		console.log("lastmove: ", lastMove, "color: ", color);
 	}
 
+	let triggered = false;
+
+	function isPositionInLines(x: number, y: number) {
+		const position = { x: x, y: y };
+
+		if ($gameState.lines == null) {
+			return false;
+		}
+		//lines = [[{x: 0, y: 0}, {x: 1, y: 1}, {x: 2, y: 2}], [{x: 0, y: 0}, {x: 1, y: 0}, {x: 2, y: 0}]]
+		let count = 0;
+		$gameState.lines.forEach((line) => {
+			//const someOutcome = line.some(
+			//	(linePosition) =>
+			//		linePosition.x === position.x &&
+			//		linePosition.y === position.y,
+			//);
+			//
+			//console.log("someOutcome: ", someOutcome);
+			//if (someOutcome) {
+			//	count++;
+			//	triggered = true;
+			//	return true;
+			//}
+			line.forEach((linePosition) => {
+				if (
+					linePosition.x == position.x &&
+					linePosition.y == position.y
+				) {
+					console.log("found position in line");
+					count++;
+					triggered = true;
+					return true;
+				}
+			});
+		});
+		return false;
+	}
+
+	//console.log($gameState.lines);
+	$: if (
+		$gameState.state == "MULTIPLE_WAITING" &&
+		$gameState.lines != null
+	) {
+		console.log("Multiple waiting!!!");
+	}
+	//
 	// for (let j = 0; j < $gameState.board.length; j++) {
 	// 	for (let i=0; i<$gameState.board[j].length; i++) {
 	// 		console.log(j,i,$gameState.board[j][i]);
@@ -93,7 +136,23 @@
 {/await}
 
 <!-- Piece generation from $gameState.board -->
-
+{#if $gameState.lines != null}
+	{#each $gameState.lines as line}
+		{#each line as position}
+			<Piece
+				piece={0}
+				position={[
+					position.x - 2.5,
+					0.52,
+					position.y - 2.5,
+				]}
+				placed={false}
+				booped={false}
+				selectable={true}
+			/>
+		{/each}
+	{/each}
+{/if}
 {#each $gameState.board as row, y}
 	{#each row as piece, x}
 		{#if piece != 0}
@@ -102,6 +161,7 @@
 				position={[x - 2.5, 0.52, y - 2.5]}
 				placed={false}
 				booped={false}
+				selectable={false}
 			/>
 		{/if}
 	{/each}

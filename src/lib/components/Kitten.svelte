@@ -18,6 +18,7 @@ Command: npx @threlte/gltf@2.0.3 kitten.glb
 
 	export let color;
 	export let placed: boolean;
+	export let selectable: boolean;
 	export let position;
 	export let booped: boolean = false;
 	export let finalPosition = [0, 0, 0];
@@ -25,8 +26,11 @@ Command: npx @threlte/gltf@2.0.3 kitten.glb
 
 	console.log($gameState.placed.position, position[0], position.z);
 
-	$: if ($gameState.placed.position.x == position[0] + 2.5 && $gameState.placed.position.y == position[2] + 2.5) {
-		console.log("animate kitten placement: ")
+	$: if (
+		$gameState.placed.position.x == position[0] + 2.5 &&
+		$gameState.placed.position.y == position[2] + 2.5
+	) {
+		console.log("animate kitten placement: ");
 		ref.position.y = 1.52;
 		animate(
 			ref.position,
@@ -36,24 +40,28 @@ Command: npx @threlte/gltf@2.0.3 kitten.glb
 				repeat: 0,
 				ease: "backInOut",
 				type: "spring",
-			}
+			},
 		);
 	}
 
 	$: {
 		if (booped) {
 			ref.position.y = position[1];
-			ref.position.x = position[0]+2.5;
-			ref.position.z = position[2]+2.5;
+			ref.position.x = position[0] + 2.5;
+			ref.position.z = position[2] + 2.5;
 			animate(
 				ref.position,
-				{ x: finalPosition[0], y: finalPosition[1], z: finalPosition[2] },
+				{
+					x: finalPosition[0],
+					y: finalPosition[1],
+					z: finalPosition[2],
+				},
 				{
 					duration: 1,
 					repeat: 0,
 					ease: "backInOut",
 					type: "spring",
-				}
+				},
 			);
 		}
 	}
@@ -70,14 +78,18 @@ Command: npx @threlte/gltf@2.0.3 kitten.glb
 		<T.Mesh
 			geometry={gltf.nodes.Kitten.geometry}
 			material={gltf.nodes.Kitten.material}
-			position={position}
+			{position}
 			scale={[0.5, 0.5, 0.5]}
 			on:create={({ ref }) => {
 				kittenRef = ref;
 			}}
 		>
 			<T.MeshStandardMaterial {color} />
-			<Outlines color="black" />
+			{#if selectable}
+				<Outlines color="white" />
+			{:else}
+				<Outlines color="black" />
+			{/if}
 		</T.Mesh>
 	{:catch error}
 		<slot name="error" {error} />
