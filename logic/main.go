@@ -8,6 +8,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"slices"
 	"sync"
 	"time"
@@ -69,8 +70,7 @@ type Message struct {
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		origins := map[string]bool{
-			"http://localhost:5173": true,
-			"http://127.0.0.1:5173": true,
+			os.Getenv("ORIGIN_URL"): true,
 		}
 		return origins[r.Header.Get("Origin")]
 	},
@@ -480,6 +480,12 @@ func main() {
 	defer log.Println("Server shutting down")
 	addr := flag.String("addr", ":8080", "http service address")
 	flag.Parse()
+
+	if os.Getenv("ENV") == "PROD" {
+		os.Setenv("ORIGIN_URL", "https://boop.oatmocha.com")
+	} else {
+		os.Setenv("ORIGIN_URL", "http://localhost:5173")
+	}
 
 	server := NewServer()
 	// Using local mux instead of default as defaultservemux is a global var which can be accessed by any 3rd party package and
