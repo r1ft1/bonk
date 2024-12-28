@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"slices"
 	"sync"
+	"time"
 )
 
 func LoadTestGameState() *GameState {
@@ -100,7 +101,7 @@ func (server *Server) createGame(conn *websocket.Conn) *Game {
 	game.Players["player1"] = conn
 	server.games[game.ID] = game
 	server.waitingGames[game.ID] = game
-	fmt.Println(server.waitingGames)
+	log.Println(server.waitingGames)
 	return game
 }
 
@@ -128,6 +129,7 @@ func (server *Server) joinGame(conn *websocket.Conn, requestedGameID string) *Ga
 func (game *Game) writePump(conn *websocket.Conn, playerID string, s *Server, wg *sync.WaitGroup) {
 	defer wg.Done()
 
+	ticker := time.NewTicker(pingPeriod)
 	for {
 		select {
 		case msg, ok := <-game.send:
@@ -156,6 +158,15 @@ func (game *Game) writePump(conn *websocket.Conn, playerID string, s *Server, wg
 
 				game.mutex.Unlock()
 			}
+		case <-ticker.C:
+			// Send ping to client every 30 seconds
+			// conn.SetWriteDeadline(time.Now().Add(writeWait))
+			log.Printf("Sending ping to %s", playerID)
+			if err := conn.WriteJSON(Message{Type: "ping"}); err != nil {
+				log.Printf("Failed to write ping to %s: %v", playerID, err)
+				s.handlePlayerDisconnect(game.ID, playerID)
+				return
+			}
 		}
 	}
 }
@@ -173,11 +184,21 @@ func readMove(conn *websocket.Conn, playerID string, game *Game, s *Server) (err
 		if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 			log.Printf("unexpected websocket close, error: %v", err)
 			s.handlePlayerDisconnect(game.ID, playerID)
+			errMsg.Payload = "Disconnected"
+			return err, errMsg, nil
 		}
 
 		game.send <- errMsg
 		log.Printf("Read error from %s: %v", playerID, err)
 		return err, errMsg, nil
+	}
+
+	//If the received piece is 99, that is a client sending a pong to the server, reset the read deadline
+	decodedPiece, _ := newMove.Piece.Int64()
+	if decodedPiece == 99 {
+		log.Printf("Pong received from %s", playerID)
+		conn.SetReadDeadline(time.Now().Add(pongWait))
+		return nil, Message{Type: "Pong", Payload: "Pong received"}, &newMove
 	}
 
 	if !s.isValidTurn(game, playerID) {
@@ -190,17 +211,39 @@ func readMove(conn *websocket.Conn, playerID string, game *Game, s *Server) (err
 	return nil, Message{}, &newMove
 }
 
+const (
+	// Time allowed to write a message to the peer
+	pingPeriod = 30 * time.Second
+
+	// Time allowd to read the next pong message from the peer
+	pongWait = 60 * time.Second
+
+	// If the server can't write to the peer within this time, the connection is closed
+	writeWait = 10 * time.Second
+)
+
 // Any ReadJSON call will only be called from here
 func (game *Game) readPump(conn *websocket.Conn, playerID string, s *Server, wg *sync.WaitGroup) {
 	defer wg.Done()
+
+	//The readpump will need to receive a ping from the client every 30 seconds to keep the connection alive
+	conn.SetReadDeadline(time.Now().Add(pongWait))
+	//When the pong is received, the read deadline is reset
+	// conn.SetPongHandler(func(string) error {
+	// 	conn.SetReadDeadline(time.Now().Add(pongWait))
+	// 	return nil
+	// })
 
 	log.Printf("ReadPump: Player %s connected to game %s", playerID, game.ID)
 	for {
 		switch game.GameState.State {
 		case "WAITING":
-			log.Println("ReadPump: WAITING")
+			// log.Println("ReadPump: WAITING")
 			err, errMsg, newMove := readMove(conn, playerID, game, s)
-			if err != nil {
+			if err != nil || errMsg.Type == "Pong" {
+				if errMsg.Type == "Disconnected" {
+					return
+				}
 				continue
 			}
 			if err := s.processTurn(conn, game, newMove); err != nil {
@@ -211,9 +254,12 @@ func (game *Game) readPump(conn *websocket.Conn, playerID string, s *Server, wg 
 			}
 
 		case "MULTIPLE_WAITING":
-			log.Println("ReadPump: MULTIPLE_WAITING")
+			// log.Println("ReadPump: MULTIPLE_WAITING")
 			err, errMsg, newMove := readMove(conn, playerID, game, s)
-			if err != nil {
+			if err != nil || errMsg.Type == "Pong" {
+				if errMsg.Type == "Disconnected" {
+					return
+				}
 				continue
 			}
 			if err := game.handleMultipleGraduations(newMove); err != nil {
@@ -224,9 +270,12 @@ func (game *Game) readPump(conn *websocket.Conn, playerID string, s *Server, wg 
 			}
 
 		case "MAX_WAITING":
-			log.Println("ReadPump: MAX_WAITING")
+			// log.Println("ReadPump: MAX_WAITING")
 			err, errMsg, newMove := readMove(conn, playerID, game, s)
-			if err != nil {
+			if err != nil || errMsg.Type == "Pong" {
+				if errMsg.Type == "Disconnected" {
+					return
+				}
 				continue
 			}
 			if err := game.handleMaxedOutGraduation(newMove); err != nil {

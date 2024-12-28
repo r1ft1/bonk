@@ -136,7 +136,7 @@
 {/await}
 
 <!-- Piece generation from $gameState.board -->
-{#if $gameState.lines != null}
+<!--{#if $gameState.lines != null} 
 	{#each $gameState.lines as line}
 		{#each line as position}
 			<Piece
@@ -152,7 +152,7 @@
 			/>
 		{/each}
 	{/each}
-{/if}
+{/if}-->
 {#each $gameState.board as row, y}
 	{#each row as piece, x}
 		{#if piece != 0}

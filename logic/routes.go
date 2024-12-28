@@ -37,6 +37,7 @@ func (s *Server) handleConnection(w http.ResponseWriter, r *http.Request) {
 		PlayerID: playerID,
 		Payload:  game.GameState,
 	}); err != nil {
+		log.Printf("Error sending initial game state: %v", err)
 		s.handlePlayerDisconnect(game.ID, playerID)
 		return
 	}
@@ -47,7 +48,7 @@ func (s *Server) handleConnection(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGetWaitingGameID(w http.ResponseWriter, r *http.Request) {
-	log.Println("GET /getWaitingGame")
+	log.Printf("GET /getWaitingGame %v", s.waitingGames)
 	enableCors(&w)
 	s.serverMutex.Lock()
 	defer s.serverMutex.Unlock()

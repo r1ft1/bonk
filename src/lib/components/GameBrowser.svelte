@@ -17,38 +17,42 @@
 
     const joinGame = async (gameID: string) => {
         $webSocket = new WebSocket(`ws://localhost:8080/ws?gameID=${gameID}`);
-        $webSocket.addEventListener("message", function (event) {
-            const msg: ServerMessage = JSON.parse(event.data);
-            if (msg.type == "error" && msg.payload == "Could not join game") {
-                console.log("Could not join game");
-                $webSocket.close();
-                return;
-            }
-            if (msg.type == "joined") {
-                $inGame = true;
-            }
-            if (msg.type != "error") {
-                $gameState = msg.payload;
-                console.log($gameState);
-            } else {
-                console.log(msg.payload);
-            }
-        });
+        $webSocket.addEventListener("message", messageEvent);
     };
 
     const createGame = async () => {
         $webSocket = new WebSocket("ws://localhost:8080/ws");
-        $webSocket.addEventListener("message", function (event) {
-            const msg: ServerMessage = JSON.parse(event.data);
-            if (msg.type != "error") {
-                $gameState = msg.payload;
-                console.log($gameState);
-            } else {
-                console.log(msg.payload);
-            }
-        });
+        $webSocket.addEventListener("message", messageEvent);
+    };
 
-        $inGame = true;
+    const messageEvent = (event: MessageEvent<any>) => {
+        //server will send a ping every 30 seconds, when received, send a pong back
+        const msg: ServerMessage = JSON.parse(event.data);
+        if (msg.type == "ping") {
+            //Piece 99 is a pong
+            $webSocket.send(
+                JSON.stringify({
+                    position: { x: 0, y: 0 },
+                    piece: 99,
+                }),
+            );
+            return;
+        }
+        if (msg.type != "error") {
+            $gameState = msg.payload;
+            console.log($gameState);
+        }
+        if (msg.type == "error" && msg.payload == "Could not join game") {
+            console.log("Could not join game");
+            $webSocket.close();
+            return;
+        }
+        if (msg.type == "joined") {
+            $inGame = true;
+            console.log(msg.payload);
+        } else {
+            console.log(msg.payload);
+        }
     };
 </script>
 
