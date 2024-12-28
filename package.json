@@ -3,7 +3,8 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "vite dev",
+    "dev": "vite dev --mode dev",
+    "staging": "vite dev --mode staging",
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
@@ -11,6 +12,7 @@
   },
   "devDependencies": {
     "@sveltejs/adapter-auto": "^3.0.0",
+    "@sveltejs/adapter-node": "^5.2.11",
     "@sveltejs/kit": "^2.0.0",
     "@sveltejs/vite-plugin-svelte": "^3.0.0",
     "@types/three": "^0.159.0",

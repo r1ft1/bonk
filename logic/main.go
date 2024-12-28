@@ -86,7 +86,7 @@ func NewServer() *Server {
 func NewGame() *Game {
 	return &Game{
 		ID:        generateGameID(),
-		GameState: LoadTestGameState(),
+		GameState: NewGameState(),
 		Players:   make(map[string]*websocket.Conn),
 		send:      make(chan Message),
 		// State:     "WAITING",
@@ -199,7 +199,7 @@ func (game *Game) readMove(conn *websocket.Conn, playerID string, s *Server) (er
 			return err, errMsg, nil
 		}
 
-		// game.send <- errMsg
+		game.send <- errMsg
 		log.Printf("Read error from %s: %v", playerID, err)
 		return err, errMsg, nil
 	}
@@ -252,7 +252,7 @@ func (game *Game) readPump(conn *websocket.Conn, playerID string, s *Server, wg 
 			// log.Println("ReadPump: WAITING")
 			err, errMsg, newMove := game.readMove(conn, playerID, s)
 			if err != nil || errMsg.Type == "Pong" {
-				if errMsg.Payload == "Disconnected" {
+				if errMsg.Type == "Disconnected" {
 					return
 				}
 				continue
@@ -268,7 +268,7 @@ func (game *Game) readPump(conn *websocket.Conn, playerID string, s *Server, wg 
 			// log.Println("ReadPump: MULTIPLE_WAITING")
 			err, errMsg, newMove := game.readMove(conn, playerID, s)
 			if err != nil || errMsg.Type == "Pong" {
-				if errMsg.Payload == "Disconnected" {
+				if errMsg.Type == "Disconnected" {
 					return
 				}
 				continue
@@ -284,7 +284,7 @@ func (game *Game) readPump(conn *websocket.Conn, playerID string, s *Server, wg 
 			// log.Println("ReadPump: MAX_WAITING")
 			err, errMsg, newMove := game.readMove(conn, playerID, s)
 			if err != nil || errMsg.Type == "Pong" {
-				if errMsg.Payload == "Disconnected" {
+				if errMsg.Type == "Disconnected" {
 					return
 				}
 				continue

@@ -8,7 +8,9 @@
     import type { ServerMessage } from "./stores.svelte";
 
     const fetchGames = async () => {
-        const response = await fetch("http://localhost:8080/getWaitingGame");
+        const response = await fetch(
+            import.meta.env.VITE_SERVER_HTTP_URL + "/getWaitingGame",
+        );
 
         const data = await response.json();
         $waitingGameIDs = data.ids;
@@ -16,12 +18,14 @@
     };
 
     const joinGame = async (gameID: string) => {
-        $webSocket = new WebSocket(`ws://localhost:8080/ws?gameID=${gameID}`);
+        $webSocket = new WebSocket(
+            `${import.meta.env.VITE_SERVER_WS_URL}/ws?gameID=${gameID}`,
+        );
         $webSocket.addEventListener("message", messageEvent);
     };
 
     const createGame = async () => {
-        $webSocket = new WebSocket("ws://localhost:8080/ws");
+        $webSocket = new WebSocket(import.meta.env.VITE_SERVER_WS_URL + "/ws");
         $webSocket.addEventListener("message", messageEvent);
     };
 
