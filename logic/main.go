@@ -142,6 +142,7 @@ func (game *Game) writePump(conn *websocket.Conn, playerID string, s *Server, wg
 				if err := conn.WriteJSON(msg); err != nil {
 					log.Printf("Failed to write error message to %s: %v", playerID, err)
 					s.handlePlayerDisconnect(game.ID, playerID)
+					return
 				}
 				game.mutex.Unlock()
 			}
@@ -153,6 +154,7 @@ func (game *Game) writePump(conn *websocket.Conn, playerID string, s *Server, wg
 					if err := conn.WriteJSON(msg); err != nil {
 						log.Printf("Failed to broadcast to %s: %v", playerID, err)
 						s.handlePlayerDisconnect(game.ID, playerID)
+						return
 					}
 				}
 
@@ -171,7 +173,7 @@ func (game *Game) writePump(conn *websocket.Conn, playerID string, s *Server, wg
 	}
 }
 
-func readMove(conn *websocket.Conn, playerID string, game *Game, s *Server) (error, Message, *NewMove) {
+func (game *Game) readMove(conn *websocket.Conn, playerID string, s *Server) (error, Message, *NewMove) {
 	var newMove NewMove
 	errMsg := Message{
 		Type:    "error",
@@ -181,14 +183,23 @@ func readMove(conn *websocket.Conn, playerID string, game *Game, s *Server) (err
 	}
 
 	if err := conn.ReadJSON(&newMove); err != nil {
-		if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+		// If the client closes without sending a close message
+		if websocket.IsCloseError(err, websocket.CloseAbnormalClosure) {
+			log.Printf("Client closed without sending a close message")
+			s.handlePlayerDisconnect(game.ID, playerID)
+			errMsg.Payload = "Disconnected"
+			return err, errMsg, nil
+		}
+
+		// Handles all other unexpected close errors
+		if websocket.IsUnexpectedCloseError(err, websocket.CloseAbnormalClosure) {
 			log.Printf("unexpected websocket close, error: %v", err)
 			s.handlePlayerDisconnect(game.ID, playerID)
 			errMsg.Payload = "Disconnected"
 			return err, errMsg, nil
 		}
 
-		game.send <- errMsg
+		// game.send <- errMsg
 		log.Printf("Read error from %s: %v", playerID, err)
 		return err, errMsg, nil
 	}
@@ -201,7 +212,7 @@ func readMove(conn *websocket.Conn, playerID string, game *Game, s *Server) (err
 		return nil, Message{Type: "Pong", Payload: "Pong received"}, &newMove
 	}
 
-	if !s.isValidTurn(game, playerID) {
+	if !game.isValidTurn(playerID) {
 		errMsg.Payload = "Not your turn"
 		game.send <- errMsg
 		log.Printf("Not your turn %s", playerID)
@@ -239,14 +250,14 @@ func (game *Game) readPump(conn *websocket.Conn, playerID string, s *Server, wg 
 		switch game.GameState.State {
 		case "WAITING":
 			// log.Println("ReadPump: WAITING")
-			err, errMsg, newMove := readMove(conn, playerID, game, s)
+			err, errMsg, newMove := game.readMove(conn, playerID, s)
 			if err != nil || errMsg.Type == "Pong" {
-				if errMsg.Type == "Disconnected" {
+				if errMsg.Payload == "Disconnected" {
 					return
 				}
 				continue
 			}
-			if err := s.processTurn(conn, game, newMove); err != nil {
+			if err := game.processTurn(conn, newMove); err != nil {
 				errMsg.Payload = err.Error()
 				errMsg.State = game.GameState.State
 				game.send <- errMsg
@@ -255,9 +266,9 @@ func (game *Game) readPump(conn *websocket.Conn, playerID string, s *Server, wg 
 
 		case "MULTIPLE_WAITING":
 			// log.Println("ReadPump: MULTIPLE_WAITING")
-			err, errMsg, newMove := readMove(conn, playerID, game, s)
+			err, errMsg, newMove := game.readMove(conn, playerID, s)
 			if err != nil || errMsg.Type == "Pong" {
-				if errMsg.Type == "Disconnected" {
+				if errMsg.Payload == "Disconnected" {
 					return
 				}
 				continue
@@ -271,9 +282,9 @@ func (game *Game) readPump(conn *websocket.Conn, playerID string, s *Server, wg 
 
 		case "MAX_WAITING":
 			// log.Println("ReadPump: MAX_WAITING")
-			err, errMsg, newMove := readMove(conn, playerID, game, s)
+			err, errMsg, newMove := game.readMove(conn, playerID, s)
 			if err != nil || errMsg.Type == "Pong" {
-				if errMsg.Type == "Disconnected" {
+				if errMsg.Payload == "Disconnected" {
 					return
 				}
 				continue
@@ -290,14 +301,17 @@ func (game *Game) readPump(conn *websocket.Conn, playerID string, s *Server, wg 
 			game.GameState.TurnNumber++
 		}
 		// Broadcast updated state to all players
-		s.broadcastGameState(game, false)
+		game.broadcastGameState()
 	}
 }
+
+// I want the game to handle the game loop and not the server
 func (s *Server) handleGameLoop(conn *websocket.Conn, game *Game, playerID string) {
 	defer func() {
 		log.Printf("Defer Func: closing connection %s", game.ID)
 		s.handlePlayerDisconnect(game.ID, playerID)
 		conn.Close()
+		return
 	}()
 
 	var wg sync.WaitGroup
@@ -312,12 +326,12 @@ func (s *Server) handleGameLoop(conn *websocket.Conn, game *Game, playerID strin
 	log.Printf("End of handle Game loop function %s", game.ID)
 }
 
-func (s *Server) isValidTurn(game *Game, playerID string) bool {
+func (game *Game) isValidTurn(playerID string) bool {
 	return (game.GameState.isPlayer1() && playerID == "player1") ||
 		(!game.GameState.isPlayer1() && playerID == "player2")
 }
 
-func (s *Server) processTurn(conn *websocket.Conn, game *Game, newMove *NewMove) error {
+func (game *Game) processTurn(conn *websocket.Conn, newMove *NewMove) error {
 	game.mutex.Lock()
 	defer game.mutex.Unlock()
 
@@ -344,7 +358,7 @@ func (s *Server) processTurn(conn *websocket.Conn, game *Game, newMove *NewMove)
 	}
 	game.GameState.Placed = Move{Position: newMove.Position, Piece: piece}
 	game.GameState.calculateOriginal()
-	// s.broadcastGameState(game, true)
+	// game.broadcastGameState(game, true)
 
 	// Handle graduation logic
 	if len(game.GameState.Lines) > 1 {
@@ -352,7 +366,7 @@ func (s *Server) processTurn(conn *websocket.Conn, game *Game, newMove *NewMove)
 	} else if len(game.GameState.Lines) == 1 {
 		game.GameState.Board.graduatePieces(game.GameState.Lines[0], game.GameState)
 	} else {
-		if s.shouldCheckMaxedOut(game) {
+		if game.shouldCheckMaxedOut() {
 			if game.GameState.Board.winCheckMaxCats(game.GameState) {
 				return nil
 			}
@@ -363,7 +377,7 @@ func (s *Server) processTurn(conn *websocket.Conn, game *Game, newMove *NewMove)
 	return nil
 }
 
-func (s *Server) shouldCheckMaxedOut(game *Game) bool {
+func (game *Game) shouldCheckMaxedOut() bool {
 	return (game.GameState.isPlayer1() && game.GameState.P1.Placed == 8) ||
 		(!game.GameState.isPlayer1() && game.GameState.P2.Placed == 8)
 }
@@ -409,7 +423,7 @@ func (game *Game) handleMaxedOutGraduation(selection *NewMove) error {
 	return nil
 }
 
-func (s *Server) broadcastGameState(game *Game, alreadyLocked bool) {
+func (game *Game) broadcastGameState() {
 	log.Printf("Broadcasting game state, game state is: %+v", game.GameState.State)
 	stateMsg := Message{
 		Type:    "gameState",
@@ -421,6 +435,7 @@ func (s *Server) broadcastGameState(game *Game, alreadyLocked bool) {
 	game.send <- stateMsg
 }
 
+// When a player disconnects, the game should be deleted from the server
 func (s *Server) handlePlayerDisconnect(gameID string, playerID string) {
 	s.serverMutex.Lock()
 	defer s.serverMutex.Unlock()
@@ -433,16 +448,17 @@ func (s *Server) handlePlayerDisconnect(gameID string, playerID string) {
 	game.mutex.Lock()
 	defer game.mutex.Unlock()
 
+	game.broadcastGameState()
+
 	delete(game.Players, playerID)
 
-	if len(game.Players) == 0 {
-		delete(s.games, gameID)
-		return
-	}
+	// if len(game.Players) == 0 {
+	delete(s.games, gameID)
+	return
+	// }
 
-	game.GameState.Winner = 0
+	// game.GameState.Winner = 0
 	// Won't be able to broadcast if j
-	// s.broadcastGameState(game, true)
 }
 
 // Helper functions remain the same
@@ -461,6 +477,7 @@ func enableCors(w *http.ResponseWriter) {
 }
 
 func main() {
+	defer log.Println("Server shutting down")
 	addr := flag.String("addr", ":8080", "http service address")
 	flag.Parse()
 

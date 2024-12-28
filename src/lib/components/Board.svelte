@@ -47,10 +47,6 @@
 		console.log($gameState);
 	};
 
-	//$webSocket.addEventListener("open", function (event) {
-	//	// $webSocket.send(JSON.stringify({ position: { X: 1, Y: 1 } }));
-	//});
-
 	interactivity();
 
 	//const { camera, scene, renderMode, autoRender } = useThrelte();
