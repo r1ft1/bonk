@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"github.com/gorilla/websocket"
 	"log"
@@ -472,15 +471,15 @@ func generateGameID() string {
 }
 
 func enableCors(w *http.ResponseWriter) {
-	(*w).Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+	(*w).Header().Set("Access-Control-Allow-Origin", os.Getenv("ORIGIN_URL"))
 	(*w).Header().Set("Access-Control-Allow-Headers", "Content-Type")
 }
 
 func main() {
 	defer log.Println("Server shutting down")
-	addr := flag.String("addr", ":8080", "http service address")
-	flag.Parse()
-
+	// addr := flag.String("addr", ":8080", "http service address")
+	// flag.Parse()
+	//
 	if os.Getenv("ENV") == "PROD" {
 		os.Setenv("ORIGIN_URL", "https://boop.oatmocha.com")
 	} else {
@@ -494,8 +493,13 @@ func main() {
 	mux.HandleFunc("/ws", server.handleConnection)
 	mux.HandleFunc("/getWaitingGame", server.handleGetWaitingGameID)
 
-	log.Println("Server starting on, ", *addr)
-	if err := http.ListenAndServe(*addr, mux); err != nil {
+	log.Println("Server starting on, ", ":8080")
+	// log.Println("Origin URL: ", os.Getenv("ORIGIN_URL"))
+	// log.Println("ENV: ", os.Getenv("ENV"))
+	// if os.Getenv("ENV") == "PROD" {
+	// 	log.Println("Running in production mode")
+	// }
+	if err := http.ListenAndServe(":8080", mux); err != nil {
 		log.Fatal("ListenAndServe:", err)
 	}
 }

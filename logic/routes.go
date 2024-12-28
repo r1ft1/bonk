@@ -8,7 +8,7 @@ import (
 
 func (s *Server) handleConnection(w http.ResponseWriter, r *http.Request) {
 	defer log.Print("handleConnection: function end")
-	enableCors(&w)
+	// enableCors(&w)
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("Upgrade error: %v", err)
