@@ -503,11 +503,11 @@ func (board *Board) graduatePiece(piecePosition Position, gameState *GameState) 
 }
 
 func (gameState *GameState) getLineContainingPosition(position Position) []Position {
+	// Return the line in which the position is in the middle of it
+	fmt.Println(gameState.Lines)
 	for _, line := range gameState.Lines {
-		for _, linePosition := range line {
-			if linePosition == position {
-				return line
-			}
+		if position == line[1] {
+			return line
 		}
 	}
 	return nil

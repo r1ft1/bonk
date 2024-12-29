@@ -22,7 +22,7 @@ func LoadTestGameState() *GameState {
 		{0, 0, 1, 0, 0, 0},
 		{0, 0, 8, 0, 0, 0},
 		{0, 0, 0, 0, 0, 8},
-		{0, 0, 0, 0, 0, 0},
+		{0, 8, 8, 0, 9, 1},
 	}
 
 	gameState.P1.Cats = 8
@@ -85,7 +85,7 @@ func NewServer() *Server {
 func NewGame() *Game {
 	return &Game{
 		ID:        generateGameID(),
-		GameState: NewGameState(),
+		GameState: LoadTestGameState(),
 		Players:   make(map[string]*websocket.Conn),
 		send:      make(chan Message),
 		// State:     "WAITING",
@@ -392,6 +392,8 @@ func getPlayerIDFromMap(m map[string]*websocket.Conn, conn *websocket.Conn) stri
 
 func (game *Game) handleMultipleGraduations(selection *NewMove) error {
 
+	log.Printf("handleMultipleGrad: Called, selection: %+v", selection)
+	log.Println(game.GameState.ThreeChoices)
 	if !slices.Contains(game.GameState.ThreeChoices, selection.Position) {
 		return fmt.Errorf("Error: HandleMultipleGraduations: The position selected is not a valid graduation piece")
 	}
