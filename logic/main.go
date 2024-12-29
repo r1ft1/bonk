@@ -251,7 +251,7 @@ func (game *Game) readPump(conn *websocket.Conn, playerID string, s *Server, wg 
 			// log.Println("ReadPump: WAITING")
 			err, errMsg, newMove := game.readMove(conn, playerID, s)
 			if err != nil || errMsg.Type == "Pong" {
-				if errMsg.Type == "Disconnected" {
+				if errMsg.Payload == "Disconnected" {
 					return
 				}
 				continue
@@ -267,7 +267,7 @@ func (game *Game) readPump(conn *websocket.Conn, playerID string, s *Server, wg 
 			// log.Println("ReadPump: MULTIPLE_WAITING")
 			err, errMsg, newMove := game.readMove(conn, playerID, s)
 			if err != nil || errMsg.Type == "Pong" {
-				if errMsg.Type == "Disconnected" {
+				if errMsg.Payload == "Disconnected" {
 					return
 				}
 				continue
@@ -283,7 +283,7 @@ func (game *Game) readPump(conn *websocket.Conn, playerID string, s *Server, wg 
 			// log.Println("ReadPump: MAX_WAITING")
 			err, errMsg, newMove := game.readMove(conn, playerID, s)
 			if err != nil || errMsg.Type == "Pong" {
-				if errMsg.Type == "Disconnected" {
+				if errMsg.Payload == "Disconnected" {
 					return
 				}
 				continue
@@ -450,6 +450,11 @@ func (s *Server) handlePlayerDisconnect(gameID string, playerID string) {
 	defer game.mutex.Unlock()
 
 	game.broadcastGameState()
+
+	if waitingGame, exists := s.waitingGames[gameID]; exists {
+		delete(waitingGame.Players, playerID)
+		delete(s.waitingGames, gameID)
+	}
 
 	delete(game.Players, playerID)
 
