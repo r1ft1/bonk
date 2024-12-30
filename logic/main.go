@@ -60,8 +60,8 @@ type Game struct {
 
 type Message struct {
 	Type     string      `json:"type"`
-	GameID   string      `json:"gameId"`
-	PlayerID string      `json:"playerId"`
+	GameID   string      `json:"gameID"`
+	PlayerID string      `json:"playerID"`
 	State    string      `json:"state"`
 	Payload  interface{} `json:"payload"`
 }
@@ -198,6 +198,8 @@ func (game *Game) readMove(conn *websocket.Conn, playerID string, s *Server) (er
 			return err, errMsg, nil
 		}
 
+		s.handlePlayerDisconnect(game.ID, playerID)
+		errMsg.Payload = "Disconnected"
 		game.send <- errMsg
 		log.Printf("Read error from %s: %v", playerID, err)
 		return err, errMsg, nil
@@ -207,7 +209,13 @@ func (game *Game) readMove(conn *websocket.Conn, playerID string, s *Server) (er
 	decodedPiece, _ := newMove.Piece.Int64()
 	if decodedPiece == 99 {
 		log.Printf("Pong received from %s", playerID)
-		conn.SetReadDeadline(time.Now().Add(pongWait))
+		if err := conn.SetReadDeadline(time.Now().Add(pongWait)); err != nil {
+			log.Printf("Client failed to send pong in time, closing connection")
+			s.handlePlayerDisconnect(game.ID, playerID)
+			game.send <- errMsg
+			errMsg.Payload = "Disconnected"
+			return fmt.Errorf("Client failed to send pong in time"), errMsg, nil
+		}
 		return nil, Message{Type: "Pong", Payload: "Pong received"}, &newMove
 	}
 
@@ -256,7 +264,7 @@ func (game *Game) readPump(conn *websocket.Conn, playerID string, s *Server, wg 
 				}
 				continue
 			}
-			if err := game.processTurn(conn, newMove); err != nil {
+			if err := game.processTurn(newMove); err != nil {
 				errMsg.Payload = err.Error()
 				errMsg.State = game.GameState.State
 				game.send <- errMsg
@@ -330,9 +338,11 @@ func (game *Game) isValidTurn(playerID string) bool {
 		(!game.GameState.isPlayer1() && playerID == "player2")
 }
 
-func (game *Game) processTurn(conn *websocket.Conn, newMove *NewMove) error {
+func (game *Game) processTurn(newMove *NewMove) error {
 	game.mutex.Lock()
 	defer game.mutex.Unlock()
+
+	game.GameState.PreviousBoard = game.GameState.Board
 
 	//Not sure why I can't use Piece directly, probably due to the json.Number type
 	kittenOrCat, _ := newMove.Piece.Int64()

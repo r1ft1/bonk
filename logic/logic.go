@@ -57,6 +57,7 @@ type GameState struct {
 	Placed            Move           `json:"placed"`
 	BoopMovement      []BoopMovement `json:"boopMovement"`
 	Original          Board          `json:"original"`
+	PreviousBoard     Board          `json:"previousBoard"`
 }
 
 func comparePosition(a, b Position) bool {
@@ -120,6 +121,7 @@ func NewGameState() *GameState {
 		{0, 0, 0, 0, 0, 0},
 		{0, 0, 0, 0, 0, 0},
 	}
+	gameState.PreviousBoard = gameState.Board
 	// gameState.previousBoard = Board{
 	// 	{0, 0, 0, 0, 0, 0},
 	// 	{0, 0, 0, 0, 0, 0},
@@ -327,7 +329,7 @@ func (board *Board) checkBoardForThreeInARows(gameState *GameState) {
 				key := generateKey(line)
 				if !uniqueLines[key] {
 					uniqueLines[key] = true
-					if player, err := board.checkLinePlayer(line, gameState); err == nil {
+					if player, err := board.checkLinePlayer(line); err == nil {
 						// Check if the line belongs to the current player
 						if (gameState.isPlayer1() && player == 1) || (!gameState.isPlayer1() && player == 2) {
 							gameState.Lines = append(gameState.Lines, line)
@@ -407,7 +409,7 @@ func (board *Board) getPlayerPiecePositions(gameState *GameState) []Position {
 	return positions
 }
 
-func (board *Board) validateLine(line []Position, gameState *GameState) bool {
+func (board *Board) validateLine(line []Position) bool {
 	// Check if the line is valid
 	// A line is valid if it contains exactly 3 positions, and all positions are within the board
 	if len(line) != 3 {
@@ -446,10 +448,10 @@ func isDiagonal(line []Position) bool {
 			(line[0].Y == line[1].Y+1 && line[1].Y == line[2].Y+1))
 }
 
-func (board *Board) checkLinePlayer(line []Position, gameState *GameState) (uint8, error) {
+func (board *Board) checkLinePlayer(line []Position) (uint8, error) {
 	// Check if all pieces in the line belong to the same player
 	// Return the player number if all pieces belong to a player, otherwise return 0
-	if !board.validateLine(line, gameState) {
+	if !board.validateLine(line) {
 		return 0, fmt.Errorf("invalid line")
 	}
 
