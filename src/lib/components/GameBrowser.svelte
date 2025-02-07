@@ -4,6 +4,8 @@
         gameState,
         waitingGameIDs,
         webSocket,
+        p1WebSocket,
+        p2WebSocket,
     } from "./stores.svelte";
     import type { ServerMessage } from "./stores.svelte";
 
@@ -24,6 +26,24 @@
         $webSocket.addEventListener("message", messageEvent);
     };
 
+    const startLocalPassAndPlay = async () => {
+        $p1WebSocket = new WebSocket(
+            import.meta.env.VITE_SERVER_WS_URL + "/ws",
+        );
+        $p1WebSocket.onmessage = (event: MessageEvent<any>) => {
+            const msg: ServerMessage = JSON.parse(event.data);
+            if (msg.type == "joined") {
+                console.log(msg.gameID);
+                $p2WebSocket = new WebSocket(
+                    `${import.meta.env.VITE_SERVER_WS_URL}/ws?gameID=${msg.gameID}`,
+                );
+                $p1WebSocket.addEventListener("message", messageEvent);
+                $p2WebSocket.addEventListener("message", messageEvent);
+                $inGame = true;
+            }
+        };
+    };
+
     const createGame = async () => {
         $webSocket = new WebSocket(import.meta.env.VITE_SERVER_WS_URL + "/ws");
         $webSocket.addEventListener("message", messageEvent);
@@ -34,12 +54,33 @@
         const msg: ServerMessage = JSON.parse(event.data);
         if (msg.type == "ping") {
             //Piece 99 is a pong
-            $webSocket.send(
-                JSON.stringify({
-                    position: { x: 0, y: 0 },
-                    piece: 99,
-                }),
-            );
+            if ($webSocket != null) {
+                $webSocket.send(
+                    JSON.stringify({
+                        position: { x: 0, y: 0 },
+                        piece: 99,
+                    }),
+                );
+            }
+
+            if ($p1WebSocket != null) {
+                $p1WebSocket.send(
+                    JSON.stringify({
+                        position: { x: 0, y: 0 },
+                        piece: 99,
+                    }),
+                );
+            }
+
+            if ($p2WebSocket != null) {
+                $p2WebSocket.send(
+                    JSON.stringify({
+                        position: { x: 0, y: 0 },
+                        piece: 99,
+                    }),
+                );
+            }
+
             return;
         }
         if (msg.type != "error") {
@@ -48,7 +89,9 @@
         }
         if (msg.type == "error" && msg.payload == "Could not join game") {
             console.log("Could not join game");
-            $webSocket.close();
+            if ($webSocket != null) $webSocket.close();
+            if ($p1WebSocket != null) $p1WebSocket.close();
+            if ($p2WebSocket != null) $p2WebSocket.close();
             return;
         }
         if (msg.type == "joined") {
@@ -62,7 +105,11 @@
 
 <!-- When clicked will call fetch to gameBrowser endpoint -->
 <div class="buttons-container">
-    <button on:click={createGame}>Create Game</button>
+    <button on:click={startLocalPassAndPlay}
+        >Start Local Pass and Play Game</button
+    >
+
+    <button on:click={createGame}>Create Online Game</button>
 
     <div class="join-games-container">
         <button on:click={fetchGames}>Fetch Games</button>

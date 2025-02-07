@@ -4,6 +4,7 @@ import type { Writable } from "svelte/store";
 export type GameState = {
 	lines: Position[][];
 	board: number[][];
+	previousBoard: number[][];
 	state: string;
 	//original: number[][];
 	turnNumber: number;
@@ -56,6 +57,14 @@ function newGameState() {
 			[0, 0, 0, 0, 0, 0],
 			[0, 0, 0, 0, 0, 0],
 		],
+		previousBoard: [
+			[0, 0, 0, 0, 0, 0],
+			[0, 0, 0, 0, 0, 0],
+			[0, 0, 0, 0, 0, 0],
+			[0, 0, 0, 0, 0, 0],
+			[0, 0, 0, 0, 0, 0],
+			[0, 0, 0, 0, 0, 0],
+		],
 		state: "WAITING",
 		//original: [
 		//	[0, 0, 0, 0, 0, 0],
@@ -94,6 +103,8 @@ function newGameState() {
 }
 
 export let webSocket: Writable<WebSocket> = writable();
+export let p1WebSocket: Writable<WebSocket> = writable();
+export let p2WebSocket: Writable<WebSocket> = writable();
 export let message = writable({ type: "", gameID: "", state: "", payload: {} } as ServerMessage);
 export let pieceChoice = writable(0);
 export let inGame = writable(false);

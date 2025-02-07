@@ -12,6 +12,8 @@
 		pieceChoice,
 		webSocket,
 		type ServerMessage,
+		p1WebSocket,
+		p2WebSocket,
 	} from "./stores.svelte";
 	import { animate } from "motion";
 	import Piece from "./Piece.svelte";
@@ -37,12 +39,42 @@
 	}
 
 	const wsSendMove = (move: THREE.Vector3) => {
-		$webSocket.send(
-			JSON.stringify({
-				position: { x: move.x + 2.5, y: move.z + 2.5 },
-				piece: $pieceChoice,
-			}),
-		);
+		if ($webSocket != null) {
+			$webSocket.send(
+				JSON.stringify({
+					position: {
+						x: move.x + 2.5,
+						y: move.z + 2.5,
+					},
+					piece: $pieceChoice,
+				}),
+			);
+		}
+
+		if ($p1WebSocket != null && $gameState.turnNumber % 2 === 0) {
+			$p1WebSocket.send(
+				JSON.stringify({
+					position: {
+						x: move.x + 2.5,
+						y: move.z + 2.5,
+					},
+					piece: $pieceChoice,
+				}),
+			);
+		} else if (
+			$p2WebSocket != null &&
+			$gameState.turnNumber % 2 === 1
+		) {
+			$p2WebSocket.send(
+				JSON.stringify({
+					position: {
+						x: move.x + 2.5,
+						y: move.z + 2.5,
+					},
+					piece: $pieceChoice,
+				}),
+			);
+		}
 		console.log(lastMove);
 		console.log($gameState);
 	};
@@ -97,6 +129,14 @@
 		});
 		return false;
 	}
+
+	//mobile touch down will move highlightMesh to the touched position
+	//ray trace the touch down to shoot a ray from the camera at that point, intersect with the ground plane to find the specific tile
+	window.addEventListener("touchstart", (e) => {
+		const touch = e.touches[0];
+		const touchX = touch.clientX;
+		const touchY = touch.clientY;
+	});
 
 	//console.log($gameState.lines);
 	$: if (
