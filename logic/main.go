@@ -85,7 +85,7 @@ func NewServer() *Server {
 func NewGame() *Game {
 	return &Game{
 		ID:        generateGameID(),
-		GameState: LoadTestGameState(),
+		GameState: NewGameState(),
 		Players:   make(map[string]*websocket.Conn),
 		send:      make(chan Message),
 		// State:     "WAITING",
