@@ -144,6 +144,7 @@
         display: flex;
         flex-direction: row;
         align-items: center;
+        z-index: 1;
     }
     .join-games-container {
         display: flex;

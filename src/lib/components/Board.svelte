@@ -160,8 +160,10 @@
 	let time = 0;
 	useTask((delta) => {
 		time += delta;
-		(highlightMesh.material as THREE.Material).opacity =
-			1 + Math.sin(time);
+		if (highlightMesh) {
+			(highlightMesh.material as THREE.Material).opacity =
+				1 + Math.sin(time);
+		}
 	});
 </script>
 
