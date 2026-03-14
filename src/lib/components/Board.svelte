@@ -243,7 +243,7 @@
 	position.y={0}
 	visible={false}
 	name="ground"
-	oncreate={({ ref }: { ref: any }) => {
+	oncreate={(ref) => {
 		planeMesh = ref;
 	}}
 	onpointermove={(e: any) => {
@@ -295,7 +295,7 @@
 <T.Mesh
 	rotation.x={-Math.PI / 2}
 	position.y={0}
-	oncreate={({ ref }: { ref: any }) => {
+	oncreate={(ref) => {
 		highlightMesh = ref;
 	}}
 >

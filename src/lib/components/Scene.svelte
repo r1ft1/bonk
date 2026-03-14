@@ -1,7 +1,5 @@
 <script lang="ts">
 	import { T, useThrelte, useTask } from "@threlte/core";
-	import CameraControls from "./CameraControls/CameraControls.svelte";
-	import { cameraControls, mesh } from "./CameraControls/stores";
 	import Board from "./Board.svelte";
 	import Logo from "./Logo.svelte";
 	import { Stars } from "@threlte/extras";
@@ -20,13 +18,6 @@
 		// camera = ref;
 	}}
 >
-	<!-- <CameraControls
-		on:create={({ ref }) => {
-			$cameraControls = ref;
-			console.log($cameraControls)
-			console.log(ref)
-		}}
-	/> -->
 </T.PerspectiveCamera>
 
 <T.DirectionalLight position={[-1, 10, 0]} intensity={1} />

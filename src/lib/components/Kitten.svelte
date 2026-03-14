@@ -94,7 +94,7 @@ Command: npx @threlte/gltf@2.0.3 kitten.glb
 			material={gltf.nodes.Kitten.material}
 			{position}
 			scale={[0.5, 0.5, 0.5]}
-			oncreate={({ ref }: { ref: any }) => {
+			oncreate={(ref) => {
 				kittenRef = ref;
 			}}
 		>
