@@ -26,16 +26,26 @@
         $webSocket.addEventListener("message", messageEvent);
     };
 
+    let statusMessage = "";
+
     const startLocalPassAndPlay = async () => {
-        $p1WebSocket = new WebSocket(
-            import.meta.env.VITE_SERVER_WS_URL + "/ws",
-        );
+        const wsUrl = import.meta.env.VITE_SERVER_WS_URL;
+        console.log("VITE_SERVER_WS_URL:", wsUrl);
+        if (!wsUrl) {
+            statusMessage = "Error: VITE_SERVER_WS_URL is not set";
+            return;
+        }
+        statusMessage = "Connecting...";
+        $p1WebSocket = new WebSocket(wsUrl + "/ws");
+        $p1WebSocket.onerror = () => {
+            statusMessage = `Error: could not connect to ${wsUrl}`;
+        };
         $p1WebSocket.onmessage = (event: MessageEvent<any>) => {
             const msg: ServerMessage = JSON.parse(event.data);
             if (msg.type == "joined") {
                 console.log(msg.gameID);
                 $p2WebSocket = new WebSocket(
-                    `${import.meta.env.VITE_SERVER_WS_URL}/ws?gameID=${msg.gameID}`,
+                    `${wsUrl}/ws?gameID=${msg.gameID}`,
                 );
                 $p1WebSocket.addEventListener("message", messageEvent);
                 $p2WebSocket.addEventListener("message", messageEvent);
@@ -104,6 +114,9 @@
 </script>
 
 <!-- When clicked will call fetch to gameBrowser endpoint -->
+{#if statusMessage}
+    <div class="status">{statusMessage}</div>
+{/if}
 <div class="buttons-container">
     <button onclick={startLocalPassAndPlay}
         >Start Local Pass and Play Game</button
@@ -167,5 +180,18 @@
 
     button:hover {
         background-color: #45a049;
+    }
+    .status {
+        position: absolute;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1;
+        color: white;
+        font-family: "Cherry Bomb One", serif;
+        font-size: 14px;
+        background-color: rgba(0,0,0,0.5);
+        padding: 8px 16px;
+        border-radius: 8px;
     }
 </style>
