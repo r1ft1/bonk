@@ -2,8 +2,6 @@ services:
   logic:
     build:
       context: ./logic
-    ports:
-      - "8080:8080"
     environment:
       - ORIGIN_URL=${ORIGIN_URL}
     restart: unless-stopped
@@ -14,8 +12,6 @@ services:
       args:
         VITE_SERVER_HTTP_URL: ${VITE_SERVER_HTTP_URL}
         VITE_SERVER_WS_URL: ${VITE_SERVER_WS_URL}
-    ports:
-      - "3000:3000"
     depends_on:
       - logic
     restart: unless-stopped
