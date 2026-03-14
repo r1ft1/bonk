@@ -30,13 +30,15 @@
 	let lastMove = { x: 0, z: 0 };
 	let color = "orange";
 
-	$: if ($gameState.turnNumber % 2 === 0) {
-		color = "orange";
-		console.log(color);
-	} else {
-		color = "lightblue";
-		console.log(color);
-	}
+	$effect(() => {
+		if ($gameState.turnNumber % 2 === 0) {
+			color = "orange";
+			console.log(color);
+		} else {
+			color = "lightblue";
+			console.log(color);
+		}
+	});
 
 	const wsSendMove = (move: THREE.Vector3) => {
 		if ($webSocket != null) {
@@ -86,11 +88,11 @@
 	let planeMesh: THREE.Mesh;
 	let highlightMesh: THREE.Mesh;
 
-	$: {
+	$effect(() => {
 		lastMove.x = $gameState.placed.position.x;
 		lastMove.z = $gameState.placed.position.y;
 		console.log("lastmove: ", lastMove, "color: ", color);
-	}
+	});
 
 	let triggered = false;
 
@@ -139,12 +141,14 @@
 	});
 
 	//console.log($gameState.lines);
-	$: if (
-		$gameState.state == "MULTIPLE_WAITING" &&
-		$gameState.lines != null
-	) {
-		console.log("Multiple waiting!!!");
-	}
+	$effect(() => {
+		if (
+			$gameState.state == "MULTIPLE_WAITING" &&
+			$gameState.lines != null
+		) {
+			console.log("Multiple waiting!!!");
+		}
+	});
 	//
 	// for (let j = 0; j < $gameState.board.length; j++) {
 	// 	for (let i=0; i<$gameState.board[j].length; i++) {
@@ -239,10 +243,10 @@
 	position.y={0}
 	visible={false}
 	name="ground"
-	on:create={({ ref }) => {
+	oncreate={({ ref }: { ref: any }) => {
 		planeMesh = ref;
 	}}
-	on:pointermove={(e) => {
+	onpointermove={(e: any) => {
 		if (e.intersections.length > 0) {
 			const { x, z } = e.intersections[0].point;
 			highlightMesh.position.set(
@@ -267,7 +271,7 @@
 		// 	highlightMesh.material.color.setHex(0xff0000);
 		// }
 	}}
-	on:pointerdown={(e) => {
+	onpointerdown={(e: any) => {
 		console.log("pointerdown", highlightMesh.position);
 		// const objectExists = objects.find((obj) => {
 		// 	return (
@@ -291,7 +295,7 @@
 <T.Mesh
 	rotation.x={-Math.PI / 2}
 	position.y={0}
-	on:create={({ ref }) => {
+	oncreate={({ ref }: { ref: any }) => {
 		highlightMesh = ref;
 	}}
 >

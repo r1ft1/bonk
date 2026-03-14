@@ -4,33 +4,45 @@ Command: npx @threlte/gltf@2.0.3 cat.glb
 -->
 
 <script lang="ts">
+	import type { Snippet } from "svelte";
 	import { Group } from "three";
-	import { T, forwardEventHandlers } from "@threlte/core";
+	import { T } from "@threlte/core";
 	import { Outlines, useGltf, Edges } from "@threlte/extras";
 	import { animate } from "motion";
 
-	export const ref = new Group();
+	const ref = new Group();
 
 	const gltf = useGltf("/cat.glb");
 
-	const component = forwardEventHandlers();
-
-	export let color;
-	export let placed;
-	export let position;
-	export let selectable: boolean;
+	let {
+		color,
+		placed,
+		position,
+		selectable,
+		fallback,
+		children,
+	}: {
+		color: any;
+		placed: any;
+		position: any;
+		selectable: boolean;
+		booped?: boolean;
+		finalPosition?: any[];
+		fallback?: Snippet;
+		children?: Snippet<[{ ref: Group }]>;
+	} = $props();
 </script>
 
-<T is={ref} dispose={false} {...$$restProps} bind:this={$component}>
+<T is={ref} dispose={false}>
 	{#await gltf}
-		<slot name="fallback" />
+		{@render fallback?.()}
 	{:then gltf}
 		<T.Mesh
 			geometry={gltf.nodes.Cube.geometry}
 			material={gltf.nodes.Cube.material}
 			{position}
 			scale={[0.5, 0.5, 0.5]}
-			on:create={({ ref }) => {
+			oncreate={({ ref }: { ref: any }) => {
 				if (placed) {
 					animate(
 						ref.position,
@@ -55,9 +67,9 @@ Command: npx @threlte/gltf@2.0.3 cat.glb
 			{/if}
 			<Edges color="black" />
 		</T.Mesh>
-	{:catch error}
-		<slot name="error" {error} />
+	{:catch _error}
+		<!-- no error fallback -->
 	{/await}
 
-	<slot {ref} />
+	{@render children?.({ ref })}
 </T>

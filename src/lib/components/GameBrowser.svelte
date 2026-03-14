@@ -105,16 +105,16 @@
 
 <!-- When clicked will call fetch to gameBrowser endpoint -->
 <div class="buttons-container">
-    <button on:click={startLocalPassAndPlay}
+    <button onclick={startLocalPassAndPlay}
         >Start Local Pass and Play Game</button
     >
 
-    <button on:click={createGame}>Create Online Game</button>
+    <button onclick={createGame}>Create Online Game</button>
 
     <div class="join-games-container">
-        <button on:click={fetchGames}>Fetch Games</button>
+        <button onclick={fetchGames}>Fetch Games</button>
         {#each $waitingGameIDs as gameID}
-            <button on:click={() => joinGame(gameID)}>Join Game {gameID}</button
+            <button onclick={() => joinGame(gameID)}>Join Game {gameID}</button
             >
         {/each}
     </div>

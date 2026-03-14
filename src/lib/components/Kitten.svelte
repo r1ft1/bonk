@@ -4,47 +4,63 @@ Command: npx @threlte/gltf@2.0.3 kitten.glb
 -->
 
 <script lang="ts">
+	import type { Snippet } from "svelte";
 	import { Group } from "three";
-	import { T, forwardEventHandlers } from "@threlte/core";
+	import { T } from "@threlte/core";
 	import { useGltf, Outlines } from "@threlte/extras";
 	import { animate } from "motion";
 	import { gameState } from "./stores.svelte";
 
-	export const ref = new Group();
+	const ref = new Group();
 
 	const gltf = useGltf("/kitten.glb");
 
-	const component = forwardEventHandlers();
+	let {
+		color,
+		placed,
+		selectable,
+		position,
+		booped = false,
+		finalPosition = [0, 0, 0],
+		fallback,
+		children,
+	}: {
+		color: any;
+		placed: boolean;
+		selectable: boolean;
+		position: any;
+		booped?: boolean;
+		finalPosition?: any[];
+		fallback?: Snippet;
+		children?: Snippet<[{ ref: Group }]>;
+	} = $props();
 
-	export let color;
-	export let placed: boolean;
-	export let selectable: boolean;
-	export let position;
-	export let booped: boolean = false;
-	export let finalPosition = [0, 0, 0];
 	let kittenRef: any;
 
-	console.log($gameState.placed.position, position[0], position.z);
+	// Debug: initial position logged at mount time
+	$effect(() => { console.log($gameState.placed.position, position[0], position[2]); });
 
-	$: if (
-		$gameState.placed.position.x == position[0] + 2.5 &&
-		$gameState.placed.position.y == position[2] + 2.5
-	) {
-		console.log("animate kitten placement: ");
-		ref.position.y = 1.52;
-		animate(
-			ref.position,
-			{ y: 0.02 },
-			{
-				duration: 1,
-				repeat: 0,
-				ease: "backInOut",
-				type: "spring",
-			},
-		);
-	}
+	$effect(() => {
+		if (
+			$gameState.placed.position.x == position[0] + 2.5 &&
+			$gameState.placed.position.y == position[2] + 2.5
+		) {
+			console.log("animate kitten placement: ");
+			ref.position.y = 1.52;
+			animate(
+				ref.position,
+				{ y: 0.02 },
+				{
+					duration: 1,
+					repeat: 0,
+					ease: "backInOut",
+					type: "spring",
+				},
+			);
+		}
+	});
 
-	$: {
+	$effect(() => {
 		if (booped) {
 			ref.position.y = position[1];
 			ref.position.x = position[0] + 2.5;
@@ -64,23 +80,21 @@ Command: npx @threlte/gltf@2.0.3 kitten.glb
 				},
 			);
 		}
-	}
-	// function rad(degrees: number) {
-	// 	return degrees * (Math.PI / 180);
-	// }
+	});
+
 	console.log(ref);
 </script>
 
-<T is={ref} dispose={false} {...$$restProps} bind:this={$component}>
+<T is={ref} dispose={false}>
 	{#await gltf}
-		<slot name="fallback" />
+		{@render fallback?.()}
 	{:then gltf}
 		<T.Mesh
 			geometry={gltf.nodes.Kitten.geometry}
 			material={gltf.nodes.Kitten.material}
 			{position}
 			scale={[0.5, 0.5, 0.5]}
-			on:create={({ ref }) => {
+			oncreate={({ ref }: { ref: any }) => {
 				kittenRef = ref;
 			}}
 		>
@@ -91,9 +105,9 @@ Command: npx @threlte/gltf@2.0.3 kitten.glb
 				<Outlines color="black" />
 			{/if}
 		</T.Mesh>
-	{:catch error}
-		<slot name="error" {error} />
+	{:catch _error}
+		<!-- no error fallback -->
 	{/await}
 
-	<slot {ref} />
+	{@render children?.({ ref })}
 </T>

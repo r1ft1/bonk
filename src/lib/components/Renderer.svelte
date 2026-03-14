@@ -53,8 +53,8 @@
 	};
 
 	// We need to set up the passes according to the camera in use
-	$: setupEffectComposer($camera);
-	$: composer.setSize($size.width, $size.height);
+	$effect(() => setupEffectComposer($camera));
+	$effect(() => composer.setSize($size.width, $size.height));
 
 	const { renderStage, autoRender } = useThrelte();
 
