@@ -274,19 +274,18 @@
 		// }
 	}}
 	onpointerdown={(e: any) => {
+		if (e.intersections.length > 0) {
+			const { x, z } = e.intersections[0].point;
+			highlightMesh.position.set(
+				Math.floor(x) + 0.5,
+				0.01,
+				Math.floor(z) + 0.5,
+			);
+		}
 		console.log("pointerdown", highlightMesh.position);
-		// const objectExists = objects.find((obj) => {
-		// 	return (
-		// 		obj.position.x === highlightMesh.position.x &&
-		// 		obj.position.z === highlightMesh.position.z
-		// 	);
-		// });
-		// if (!objectExists) {
 		wsSendMove(highlightMesh.position);
 		// @ts-ignore
 		highlightMesh.material.color.setHex(0xff0000);
-		// }
-		// console.log(scene.children.length);
 	}}
 >
 	<T.PlaneGeometry args={[6, 6]} />
