@@ -10,8 +10,8 @@ services:
     build:
       context: .
       args:
-        VITE_SERVER_HTTP_URL: ${VITE_SERVER_HTTP_URL}
-        VITE_SERVER_WS_URL: ${VITE_SERVER_WS_URL}
+        PUBLIC_SERVER_HTTP_URL: ${PUBLIC_SERVER_HTTP_URL}
+        PUBLIC_SERVER_WS_URL: ${PUBLIC_SERVER_WS_URL}
     depends_on:
       - logic
     restart: unless-stopped

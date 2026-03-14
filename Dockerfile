@@ -8,11 +8,11 @@ RUN npm ci
 
 COPY . .
 
-# VITE_ env vars are inlined at build time — pass them as build args in Coolify
-ARG VITE_SERVER_HTTP_URL
-ARG VITE_SERVER_WS_URL
-ENV VITE_SERVER_HTTP_URL=$VITE_SERVER_HTTP_URL
-ENV VITE_SERVER_WS_URL=$VITE_SERVER_WS_URL
+# PUBLIC_ env vars are inlined at build time — pass them as build args in Coolify
+ARG PUBLIC_SERVER_HTTP_URL
+ARG PUBLIC_SERVER_WS_URL
+ENV PUBLIC_SERVER_HTTP_URL=$PUBLIC_SERVER_HTTP_URL
+ENV PUBLIC_SERVER_WS_URL=$PUBLIC_SERVER_WS_URL
 
 RUN npm run build
 

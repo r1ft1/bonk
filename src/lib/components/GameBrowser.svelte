@@ -8,10 +8,11 @@
         p2WebSocket,
     } from "./stores.svelte";
     import type { ServerMessage } from "./stores.svelte";
+    import { PUBLIC_SERVER_WS_URL, PUBLIC_SERVER_HTTP_URL } from "$env/static/public";
 
     const fetchGames = async () => {
         const response = await fetch(
-            import.meta.env.VITE_SERVER_HTTP_URL + "/getWaitingGame",
+            PUBLIC_SERVER_HTTP_URL + "/getWaitingGame",
         );
 
         const data = await response.json();
@@ -21,7 +22,7 @@
 
     const joinGame = async (gameID: string) => {
         $webSocket = new WebSocket(
-            `${import.meta.env.VITE_SERVER_WS_URL}/ws?gameID=${gameID}`,
+            `${PUBLIC_SERVER_WS_URL}/ws?gameID=${gameID}`,
         );
         $webSocket.addEventListener("message", messageEvent);
     };
@@ -29,23 +30,22 @@
     let statusMessage = "";
 
     const startLocalPassAndPlay = async () => {
-        const wsUrl = import.meta.env.VITE_SERVER_WS_URL;
-        console.log("VITE_SERVER_WS_URL:", wsUrl);
-        if (!wsUrl) {
-            statusMessage = "Error: VITE_SERVER_WS_URL is not set";
+        console.log("PUBLIC_SERVER_WS_URL:", PUBLIC_SERVER_WS_URL);
+        if (!PUBLIC_SERVER_WS_URL) {
+            statusMessage = "Error: PUBLIC_SERVER_WS_URL is not set";
             return;
         }
         statusMessage = "Connecting...";
-        $p1WebSocket = new WebSocket(wsUrl + "/ws");
+        $p1WebSocket = new WebSocket(PUBLIC_SERVER_WS_URL + "/ws");
         $p1WebSocket.onerror = () => {
-            statusMessage = `Error: could not connect to ${wsUrl}`;
+            statusMessage = `Error: could not connect to ${PUBLIC_SERVER_WS_URL}`;
         };
         $p1WebSocket.onmessage = (event: MessageEvent<any>) => {
             const msg: ServerMessage = JSON.parse(event.data);
             if (msg.type == "joined") {
                 console.log(msg.gameID);
                 $p2WebSocket = new WebSocket(
-                    `${wsUrl}/ws?gameID=${msg.gameID}`,
+                    `${PUBLIC_SERVER_WS_URL}/ws?gameID=${msg.gameID}`,
                 );
                 $p1WebSocket.addEventListener("message", messageEvent);
                 $p2WebSocket.addEventListener("message", messageEvent);
@@ -55,7 +55,7 @@
     };
 
     const createGame = async () => {
-        $webSocket = new WebSocket(import.meta.env.VITE_SERVER_WS_URL + "/ws");
+        $webSocket = new WebSocket(PUBLIC_SERVER_WS_URL + "/ws");
         $webSocket.addEventListener("message", messageEvent);
     };
 
