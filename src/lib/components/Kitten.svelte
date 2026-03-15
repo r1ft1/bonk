@@ -9,7 +9,7 @@ Command: npx @threlte/gltf@2.0.3 kitten.glb
 	import { T } from "@threlte/core";
 	import { useGltf, Outlines } from "@threlte/extras";
 	import { animate } from "motion";
-	import { gameState } from "./stores.svelte";
+	import { gameState } from "./stores";
 
 	const ref = new Group();
 

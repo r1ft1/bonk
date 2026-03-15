@@ -1,0 +1,5 @@
+node_modules
+logic
+.git
+build
+.svelte-kit

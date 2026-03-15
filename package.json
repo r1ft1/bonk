@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "vite dev --mode dev",
+    "dev": "vite dev --port 5173",
     "staging": "vite dev --mode staging",
     "build": "vite build",
     "start": "node build/index.js",
