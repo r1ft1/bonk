@@ -14,7 +14,9 @@
 		type ServerMessage,
 		p1WebSocket,
 		p2WebSocket,
-	} from "./stores.svelte";
+		lastClickPos,
+		noPiecesMsg,
+	} from "./stores";
 	import { animate } from "motion";
 	import Piece from "./Piece.svelte";
 
@@ -41,6 +43,16 @@
 	});
 
 	const wsSendMove = (move: THREE.Vector3) => {
+		const isP1 = $gameState.turnNumber % 2 === 0;
+		const player = isP1 ? $gameState.p1 : $gameState.p2;
+		const pieceName = $pieceChoice == 0 ? "kittens" : "cats";
+		const available = $pieceChoice == 0 ? player.kittens : player.cats;
+		if (available <= 0) {
+			$noPiecesMsg = `No ${pieceName} left!`;
+			setTimeout(() => { $noPiecesMsg = ""; }, 1500);
+			return;
+		}
+
 		if ($webSocket != null) {
 			$webSocket.send(
 				JSON.stringify({
@@ -161,8 +173,12 @@
 	useTask((delta) => {
 		time += delta;
 		if (highlightMesh) {
-			(highlightMesh.material as THREE.Material).opacity =
-				1 + Math.sin(time);
+			if ($gameState.winner) {
+				(highlightMesh.material as THREE.Material).opacity = 0;
+			} else {
+				(highlightMesh.material as THREE.Material).opacity =
+					1 + Math.sin(time);
+			}
 		}
 	});
 </script>
@@ -282,6 +298,7 @@
 				Math.floor(z) + 0.5,
 			);
 		}
+		$lastClickPos = { x: e.nativeEvent.clientX, y: e.nativeEvent.clientY };
 		console.log("pointerdown", highlightMesh.position);
 		wsSendMove(highlightMesh.position);
 		// @ts-ignore

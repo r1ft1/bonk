@@ -6,8 +6,8 @@
         webSocket,
         p1WebSocket,
         p2WebSocket,
-    } from "./stores.svelte";
-    import type { ServerMessage } from "./stores.svelte";
+    } from "./stores";
+    import type { ServerMessage } from "./stores";
     import { PUBLIC_SERVER_WS_URL, PUBLIC_SERVER_HTTP_URL } from "$env/static/public";
 
     const fetchGames = async () => {
@@ -60,10 +60,8 @@
     };
 
     const messageEvent = (event: MessageEvent<any>) => {
-        //server will send a ping every 30 seconds, when received, send a pong back
         const msg: ServerMessage = JSON.parse(event.data);
         if (msg.type == "ping") {
-            //Piece 99 is a pong
             if ($webSocket != null) {
                 $webSocket.send(
                     JSON.stringify({
@@ -113,85 +111,217 @@
     };
 </script>
 
-<!-- When clicked will call fetch to gameBrowser endpoint -->
-{#if statusMessage}
-    <div class="status">{statusMessage}</div>
-{/if}
-<div class="buttons-container">
-    <button onclick={startLocalPassAndPlay}
-        >Start Local Pass and Play Game</button
-    >
+<div class="menu-overlay">
+    <div class="menu-card">
+        <div class="paw paw-1"></div>
+        <div class="paw paw-2"></div>
+        <div class="paw paw-3"></div>
+        <div class="paw paw-4"></div>
+        <div class="paw paw-5"></div>
 
-    <button onclick={createGame}>Create Online Game</button>
+        <h1 class="title">boop.</h1>
+        <p class="subtitle">a game of kittens & cats</p>
 
-    <div class="join-games-container">
-        <button onclick={fetchGames}>Fetch Games</button>
-        {#each $waitingGameIDs as gameID}
-            <button onclick={() => joinGame(gameID)}>Join Game {gameID}</button
-            >
-        {/each}
+        {#if statusMessage}
+            <div class="status">{statusMessage}</div>
+        {/if}
+
+        <div class="buttons">
+            <button class="btn btn-primary" onclick={startLocalPassAndPlay}>
+                <span class="btn-label">Local Game</span>
+                <span class="btn-desc">Pass & play on this device</span>
+            </button>
+
+            <button class="btn btn-secondary" onclick={createGame}>
+                <span class="btn-label">Create Online Game</span>
+                <span class="btn-desc">Host a new game room</span>
+            </button>
+
+            <button class="btn btn-tertiary" onclick={fetchGames}>
+                <span class="btn-label">Browse Games</span>
+                <span class="btn-desc">Join an existing game</span>
+            </button>
+        </div>
+
+        {#if $waitingGameIDs.length > 0}
+            <div class="game-list">
+                <p class="game-list-title">Open Games</p>
+                {#each $waitingGameIDs as gameID}
+                    <button class="btn btn-join" onclick={() => joinGame(gameID)}>
+                        Join Game {gameID}
+                    </button>
+                {/each}
+            </div>
+        {/if}
     </div>
 </div>
 
 <style>
-    @import url("https://fonts.googleapis.com/css2?family=Cherry+Bomb+One&display=swap");
+    @import url("https://fonts.googleapis.com/css2?family=Cherry+Bomb+One&family=Nunito:wght@400;600;700&display=swap");
 
-    * {
-        color: white;
-        font-family: "Cherry Bomb One", serif;
-        font-weight: 400;
-        font-style: normal;
-    }
-    div {
-        border-style: dashed;
-        border-radius: 25px;
-        background-color: rgba(98, 163, 169, 0.5);
-        margin: 1rem;
-    }
-
-    .buttons-container {
+    .menu-overlay {
         position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        display: flex;
-        flex-direction: row;
-        align-items: center;
+        inset: 0;
         z-index: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
     }
-    .join-games-container {
+
+    .menu-card {
+        pointer-events: all;
+        position: relative;
+        background: #faf6f0;
+        border: 2px solid rgba(180, 160, 140, 0.3);
+        border-radius: 24px;
+        padding: 2.5rem 2.5rem 2rem;
         display: flex;
         flex-direction: column;
-    }
-    button {
-        border-style: dashed;
-        border-radius: 25px;
-        background-color: rgba(98, 163, 169, 0.5);
-        margin: 1rem;
-        color: white;
-        padding: 15px 32px;
-        text-align: center;
-        text-decoration: none;
-        display: inline-block;
-        font-size: 16px;
-        margin: 4px 2px;
-        cursor: pointer;
+        align-items: center;
+        gap: 0.25rem;
+        box-shadow:
+            0 4px 24px rgba(100, 80, 60, 0.1),
+            0 1px 3px rgba(100, 80, 60, 0.08);
+        max-width: 380px;
+        width: 90vw;
+        overflow: hidden;
     }
 
-    button:hover {
-        background-color: #45a049;
-    }
-    .status {
+    /* Paw print decorations */
+    .paw {
         position: absolute;
-        top: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 1;
-        color: white;
+        width: 30px;
+        height: 30px;
+        pointer-events: none;
+        opacity: 0.12;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath fill='%238b7b6b' d='M256 310c-34-40-107-50-107-50s-37 85-3 141c26 42 76 54 110 54s84-12 110-54c34-56-3-141-3-141s-73 10-107 50z'/%3E%3Cellipse fill='%238b7b6b' cx='118' cy='226' rx='52' ry='72' transform='rotate(-20 118 226)'/%3E%3Cellipse fill='%238b7b6b' cx='394' cy='226' rx='52' ry='72' transform='rotate(20 394 226)'/%3E%3Cellipse fill='%238b7b6b' cx='214' cy='115' rx='48' ry='68' transform='rotate(-8 214 115)'/%3E%3Cellipse fill='%238b7b6b' cx='298' cy='115' rx='48' ry='68' transform='rotate(8 298 115)'/%3E%3C/svg%3E");
+        background-size: contain;
+        background-repeat: no-repeat;
+    }
+
+    .paw-1 { top: 12px; left: 18px; transform: rotate(-25deg); }
+    .paw-2 { top: 8px; right: 24px; transform: rotate(15deg); }
+    .paw-3 { bottom: 20px; left: 14px; transform: rotate(-40deg); }
+    .paw-4 { bottom: 12px; right: 20px; transform: rotate(30deg); }
+    .paw-5 { top: 50%; right: 10px; transform: rotate(10deg); }
+
+    .title {
         font-family: "Cherry Bomb One", serif;
-        font-size: 14px;
-        background-color: rgba(0,0,0,0.5);
-        padding: 8px 16px;
-        border-radius: 8px;
+        font-size: 3.5rem;
+        font-weight: 400;
+        color: #5a4a3a;
+        margin: 0;
+        letter-spacing: 0.02em;
+        line-height: 1.1;
+    }
+
+    .subtitle {
+        font-family: "Nunito", sans-serif;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #9a8a7a;
+        margin: 0 0 1.5rem 0;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+    }
+
+    .buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+        width: 100%;
+    }
+
+    .btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.15rem;
+        width: 100%;
+        padding: 0.9rem 1.25rem;
+        border: 2px solid transparent;
+        border-radius: 16px;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        text-align: center;
+        font-family: "Nunito", sans-serif;
+    }
+
+    .btn-primary {
+        background: #d4eef6;
+        border-color: rgba(142, 200, 219, 0.4);
+    }
+
+    .btn-secondary {
+        background: #f6ddd4;
+        border-color: rgba(219, 170, 142, 0.35);
+    }
+
+    .btn-tertiary {
+        background: #e4daf6;
+        border-color: rgba(170, 142, 219, 0.3);
+    }
+
+    .btn:hover {
+        transform: scale(1.03);
+        box-shadow: 0 3px 12px rgba(100, 80, 60, 0.12);
+    }
+
+    .btn:active {
+        transform: scale(0.99);
+    }
+
+    .btn-label {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #4a5568;
+    }
+
+    .btn-desc {
+        font-size: 0.75rem;
+        font-weight: 400;
+        color: #8a8a8a;
+    }
+
+    .btn-join {
+        background: #d4f0e0;
+        border-color: rgba(130, 200, 160, 0.4);
+        padding: 0.7rem 1rem;
+        color: #4a5568;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .game-list {
+        width: 100%;
+        margin-top: 0.75rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+    }
+
+    .game-list-title {
+        font-family: "Nunito", sans-serif;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #9a8a7a;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        margin: 0 0 0.25rem 0.25rem;
+    }
+
+    .status {
+        font-family: "Nunito", sans-serif;
+        font-size: 0.85rem;
+        color: #7a6a4a;
+        background: #faf0d8;
+        border: 2px solid rgba(200, 180, 120, 0.3);
+        border-radius: 12px;
+        padding: 0.6rem 1.2rem;
+        margin-bottom: 0.75rem;
+        width: 100%;
+        text-align: center;
+        box-sizing: border-box;
     }
 </style>
