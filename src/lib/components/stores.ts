@@ -34,6 +34,7 @@ type BoopMovement = {
 export type ServerMessage = {
 	type: string;
 	gameID: string;
+	playerID: string;
 	state: string;
 	payload: GameState | any;
 };
@@ -105,7 +106,9 @@ export function newGameState() {
 export let webSocket: Writable<WebSocket> = writable();
 export let p1WebSocket: Writable<WebSocket> = writable();
 export let p2WebSocket: Writable<WebSocket> = writable();
-export let message = writable({ type: "", gameID: "", state: "", payload: {} } as ServerMessage);
+export let message = writable({ type: "", gameID: "", playerID: "", state: "", payload: {} } as ServerMessage);
+export let waitingForOpponent = writable(false);
+export let onlineGameID = writable("");
 export let pieceChoice = writable(0);
 export let inGame = writable(false);
 export let waitingGameIDs = writable("");

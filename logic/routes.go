@@ -44,6 +44,11 @@ func (s *Server) handleConnection(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Print(s.games)
 
+	// Notify all players when a second player joins
+	if playerID == "player2" {
+		game.broadcastGameState()
+	}
+
 	// Start game loop
 	s.handleGameLoop(conn, game, playerID)
 }

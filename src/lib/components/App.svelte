@@ -91,8 +91,6 @@
 {/each}
 
 <style>
-	@import url("https://fonts.googleapis.com/css2?family=Cherry+Bomb+One&family=Nunito:wght@400;600;700&display=swap");
-
 	.winner-overlay {
 		position: fixed;
 		inset: 0;

@@ -3,6 +3,8 @@
         inGame,
         gameState,
         waitingGameIDs,
+        waitingForOpponent,
+        onlineGameID,
         webSocket,
         p1WebSocket,
         p2WebSocket,
@@ -103,8 +105,19 @@
             return;
         }
         if (msg.type == "joined") {
-            $inGame = true;
+            if (msg.playerID == "player1") {
+                // Game creator: wait for opponent to join
+                $waitingForOpponent = true;
+                $onlineGameID = msg.gameID;
+            } else {
+                // Joiner: go straight into the game
+                $inGame = true;
+            }
             console.log(msg.payload);
+        } else if (msg.type == "gameState" && $waitingForOpponent) {
+            // Opponent has joined — enter the game
+            $waitingForOpponent = false;
+            $inGame = true;
         } else {
             console.log(msg.payload);
         }
@@ -122,43 +135,56 @@
         <h1 class="title">boop.</h1>
         <p class="subtitle">a game of kittens & cats</p>
 
-        {#if statusMessage}
-            <div class="status">{statusMessage}</div>
-        {/if}
-
-        <div class="buttons">
-            <button class="btn btn-primary" onclick={startLocalPassAndPlay}>
-                <span class="btn-label">Local Game</span>
-                <span class="btn-desc">Pass & play on this device</span>
-            </button>
-
-            <button class="btn btn-secondary" onclick={createGame}>
-                <span class="btn-label">Create Online Game</span>
-                <span class="btn-desc">Host a new game room</span>
-            </button>
-
-            <button class="btn btn-tertiary" onclick={fetchGames}>
-                <span class="btn-label">Browse Games</span>
-                <span class="btn-desc">Join an existing game</span>
-            </button>
-        </div>
-
-        {#if $waitingGameIDs.length > 0}
-            <div class="game-list">
-                <p class="game-list-title">Open Games</p>
-                {#each $waitingGameIDs as gameID}
-                    <button class="btn btn-join" onclick={() => joinGame(gameID)}>
-                        Join Game {gameID}
-                    </button>
-                {/each}
+        {#if $waitingForOpponent}
+            <div class="waiting-section">
+                <p class="waiting-text">Waiting for opponent to join...</p>
+                <div class="game-code">
+                    <span class="game-code-label">Game Code</span>
+                    <span class="game-code-value">{$onlineGameID}</span>
+                </div>
+                <div class="waiting-dots">
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                </div>
             </div>
+        {:else}
+            {#if statusMessage}
+                <div class="status">{statusMessage}</div>
+            {/if}
+
+            <div class="buttons">
+                <button class="btn btn-primary" onclick={startLocalPassAndPlay}>
+                    <span class="btn-label">Local Game</span>
+                    <span class="btn-desc">Pass & play on this device</span>
+                </button>
+
+                <button class="btn btn-secondary" onclick={createGame}>
+                    <span class="btn-label">Create Online Game</span>
+                    <span class="btn-desc">Host a new game room</span>
+                </button>
+
+                <button class="btn btn-tertiary" onclick={fetchGames}>
+                    <span class="btn-label">Browse Games</span>
+                    <span class="btn-desc">Join an existing game</span>
+                </button>
+            </div>
+
+            {#if $waitingGameIDs.length > 0}
+                <div class="game-list">
+                    <p class="game-list-title">Open Games</p>
+                    {#each $waitingGameIDs as gameID}
+                        <button class="btn btn-join" onclick={() => joinGame(gameID)}>
+                            Join Game {gameID}
+                        </button>
+                    {/each}
+                </div>
+            {/if}
         {/if}
     </div>
 </div>
 
 <style>
-    @import url("https://fonts.googleapis.com/css2?family=Cherry+Bomb+One&family=Nunito:wght@400;600;700&display=swap");
-
     .menu-overlay {
         position: absolute;
         inset: 0;
@@ -309,6 +335,82 @@
         text-transform: uppercase;
         letter-spacing: 0.12em;
         margin: 0 0 0.25rem 0.25rem;
+    }
+
+    .waiting-section {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+        width: 100%;
+        padding: 0.5rem 0;
+    }
+
+    .waiting-text {
+        font-family: "Nunito", sans-serif;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #5a4a3a;
+        margin: 0;
+    }
+
+    .game-code {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.3rem;
+        background: #f0ebe4;
+        border: 2px solid rgba(180, 160, 140, 0.3);
+        border-radius: 16px;
+        padding: 1rem 2rem;
+    }
+
+    .game-code-label {
+        font-family: "Nunito", sans-serif;
+        font-size: 0.7rem;
+        font-weight: 700;
+        color: #9a8a7a;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+    }
+
+    .game-code-value {
+        font-family: "Cherry Bomb One", serif;
+        font-size: 2rem;
+        color: #5a4a3a;
+        letter-spacing: 0.15em;
+    }
+
+    .waiting-dots {
+        display: flex;
+        gap: 0.4rem;
+    }
+
+    .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #c4b4a4;
+        animation: bounce 1.4s ease-in-out infinite;
+    }
+
+    .dot:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+
+    .dot:nth-child(3) {
+        animation-delay: 0.4s;
+    }
+
+    @keyframes bounce {
+        0%, 80%, 100% {
+            transform: translateY(0);
+            opacity: 0.4;
+        }
+        40% {
+            transform: translateY(-8px);
+            opacity: 1;
+        }
     }
 
     .status {

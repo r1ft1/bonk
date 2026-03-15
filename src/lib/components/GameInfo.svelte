@@ -12,29 +12,32 @@
 		{/if}
 	</p>
 	<p class="turn-number">Turn {$gameState.turnNumber}</p>
+	{#if $gameState.state === "MAX_WAITING"}
+		<p class="state-alert"><strong>Board full!</strong> Select a piece to remove. Kittens graduate into cats!</p>
+	{:else if $gameState.state === "MULTIPLE_WAITING"}
+		<p class="state-alert"><strong>Multiple rows!</strong> Click the middle piece of a row to select it. Kittens graduate into cats!</p>
+	{/if}
 </div>
 
 <div class="player-box player-1">
 	<h3 style="color: orange">Player 1</h3>
-	<div class="stats">
-		<span>Kittens: {$gameState.p1.kittens}</span>
-		<span>Cats: {$gameState.p1.cats}</span>
-	</div>
-	<p class="placed">Placed: {$gameState.p1.placed}</p>
+	<table class="stats-table"><tbody>
+		<tr><td class="stat-label">Kittens ({$gameState.p1.kittens})</td><td class="stat-faces">{':3 '.repeat($gameState.p1.kittens).trim()}</td></tr>
+		<tr><td class="stat-label">Cats ({$gameState.p1.cats})</td><td class="stat-faces">{'>:3 '.repeat($gameState.p1.cats).trim()}</td></tr>
+		<tr><td class="stat-label">Placed</td><td class="stat-faces">{$gameState.p1.placed}</td></tr>
+	</tbody></table>
 </div>
 
 <div class="player-box player-2">
 	<h3 style="color: lightblue">Player 2</h3>
-	<div class="stats">
-		<span>Kittens: {$gameState.p2.kittens}</span>
-		<span>Cats: {$gameState.p2.cats}</span>
-	</div>
-	<p class="placed">Placed: {$gameState.p2.placed}</p>
+	<table class="stats-table"><tbody>
+		<tr><td class="stat-label">Kittens ({$gameState.p2.kittens})</td><td class="stat-faces">{':3 '.repeat($gameState.p2.kittens).trim()}</td></tr>
+		<tr><td class="stat-label">Cats ({$gameState.p2.cats})</td><td class="stat-faces">{'>:3 '.repeat($gameState.p2.cats).trim()}</td></tr>
+		<tr><td class="stat-label">Placed</td><td class="stat-faces">{$gameState.p2.placed}</td></tr>
+	</tbody></table>
 </div>
 
 <style>
-	@import url("https://fonts.googleapis.com/css2?family=Cherry+Bomb+One&family=Nunito:wght@400;600;700&display=swap");
-
 	.game-info {
 		position: absolute;
 		top: 0;
@@ -78,6 +81,19 @@
 		text-transform: uppercase;
 	}
 
+	.state-alert {
+		font-family: "Nunito", sans-serif;
+		font-size: 0.85rem;
+		font-weight: 700;
+		color: #7a6a4a;
+		background: #faf0d8;
+		border: 2px solid rgba(200, 180, 120, 0.3);
+		border-radius: 10px;
+		padding: 0.4rem 0.8rem;
+		margin: 0.4rem 0 0 0;
+		text-align: center;
+	}
+
 	.player-box {
 		position: absolute;
 		z-index: 10;
@@ -97,29 +113,28 @@
 		margin: 0 0 0.3rem 0;
 	}
 
-	.stats {
-		display: flex;
-		gap: 0.75rem;
-		background: none;
-		border: none;
-		box-shadow: none;
-		padding: 0;
-		margin: 0;
+	.stats-table {
+		width: 100%;
+		border-collapse: collapse;
+		font-family: "Nunito", sans-serif;
 	}
 
-	.stats span {
-		font-family: "Nunito", sans-serif;
+	.stats-table td {
+		padding: 0.15rem 0;
 		font-size: 0.85rem;
-		font-weight: 600;
 		color: #5a4a3a;
 	}
 
-	.placed {
-		font-family: "Nunito", sans-serif;
-		font-size: 0.75rem;
-		font-weight: 400;
-		color: #9a8a7a;
-		margin: 0.2rem 0 0 0;
+	.stat-label {
+		font-weight: 700;
+		white-space: nowrap;
+		padding-right: 0.6rem !important;
+	}
+
+	.stat-faces {
+		font-weight: 600;
+		color: #9a8a7a !important;
+		word-break: break-all;
 	}
 
 	.player-1 {

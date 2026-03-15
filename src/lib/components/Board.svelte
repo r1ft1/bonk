@@ -43,14 +43,16 @@
 	});
 
 	const wsSendMove = (move: THREE.Vector3) => {
-		const isP1 = $gameState.turnNumber % 2 === 0;
-		const player = isP1 ? $gameState.p1 : $gameState.p2;
-		const pieceName = $pieceChoice == 0 ? "kittens" : "cats";
-		const available = $pieceChoice == 0 ? player.kittens : player.cats;
-		if (available <= 0) {
-			$noPiecesMsg = `No ${pieceName} left!`;
-			setTimeout(() => { $noPiecesMsg = ""; }, 1500);
-			return;
+		if ($gameState.state === "WAITING") {
+			const isP1 = $gameState.turnNumber % 2 === 0;
+			const player = isP1 ? $gameState.p1 : $gameState.p2;
+			const pieceName = $pieceChoice == 0 ? "kittens" : "cats";
+			const available = $pieceChoice == 0 ? player.kittens : player.cats;
+			if (available <= 0) {
+				$noPiecesMsg = `No ${pieceName} left!`;
+				setTimeout(() => { $noPiecesMsg = ""; }, 1500);
+				return;
+			}
 		}
 
 		if ($webSocket != null) {
