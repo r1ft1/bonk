@@ -5,10 +5,29 @@ Command: npx @threlte/gltf@2.0.3 cat.glb
 
 <script lang="ts">
 	import type { Snippet } from "svelte";
-	import { Group } from "three";
-	import { T } from "@threlte/core";
+	import { Color, Group, Vector3 } from "three";
+	import { T, useTask } from "@threlte/core";
 	import { Outlines, useGltf, Edges } from "@threlte/extras";
 	import { animate } from "motion";
+	import { gameState } from "./stores";
+
+	const LINE_COLORS = ["#00ffff", "#ff00ff", "#ffff00", "#00ff00"];
+	const SWAP_PERIOD = 1.5;
+
+	// Spawn positions for arc animation (world coordinates)
+	const P1_SPAWN = new Vector3(7, 5, -7);
+	const P2_SPAWN = new Vector3(3, 5, 9);
+
+	let time = $state(0);
+	let arcStart = { x: 0, y: 0, z: 0 };
+	let arcProgress = 0;
+	let arcAnimating = false;
+	const ARC_DURATION = 0.6;
+	const ARC_HEIGHT = 5;
+
+	function easeOutCubic(t: number): number {
+		return 1 - Math.pow(1 - t, 3);
+	}
 
 	const ref = new Group();
 
@@ -19,18 +38,60 @@ Command: npx @threlte/gltf@2.0.3 cat.glb
 		placed,
 		position,
 		selectable,
+		isMiddle = false,
 		fallback,
 		children,
 	}: {
 		color: any;
 		placed: any;
 		position: any;
-		selectable: boolean;
+		selectable: number[];
+		isMiddle?: boolean;
 		booped?: boolean;
 		finalPosition?: any[];
 		fallback?: Snippet;
 		children?: Snippet<[{ ref: Group }]>;
 	} = $props();
+
+	useTask((delta) => {
+		if (selectable.length > 0) time += delta;
+
+		if (arcAnimating) {
+			arcProgress += delta / ARC_DURATION;
+			if (arcProgress >= 1) {
+				arcAnimating = false;
+				ref.position.set(0, 0.3, 0);
+				animate(ref.position, { y: 0 }, {
+					duration: 0.4,
+					ease: "easeInOut",
+				});
+			} else {
+				const t = easeOutCubic(arcProgress);
+				ref.position.x = arcStart.x * (1 - t);
+				ref.position.z = arcStart.z * (1 - t);
+				ref.position.y = arcStart.y * (1 - t) + ARC_HEIGHT * 4 * t * (1 - t);
+			}
+		}
+	});
+
+	$effect(() => {
+		if (
+			$gameState.placed.position.x == position[0] + 2.5 &&
+			$gameState.placed.position.y == position[2] + 2.5
+		) {
+			const targetWorld = new Vector3(position[0], position[1], position[2]);
+			const spawn = $gameState.turnNumber % 2 === 1 ? P1_SPAWN : P2_SPAWN;
+
+			arcStart = {
+				x: spawn.x - targetWorld.x,
+				y: spawn.y - targetWorld.y,
+				z: spawn.z - targetWorld.z,
+			};
+			ref.position.set(arcStart.x, arcStart.y, arcStart.z);
+			arcProgress = 0;
+			arcAnimating = true;
+		}
+	});
 </script>
 
 <T is={ref} dispose={false}>
@@ -43,28 +104,25 @@ Command: npx @threlte/gltf@2.0.3 cat.glb
 			{position}
 			scale={[0.5, 0.5, 0.5]}
 			oncreate={(ref) => {
-				if (placed) {
-					animate(
-						ref.position,
-						{ y: 0.52 },
-						{
-							duration: 1,
-							repeat: 0,
-							ease: "backInOut",
-							type: "spring",
-						},
-					);
-				} else {
-					ref.position.y = 0.52;
-				}
+				ref.position.y = 0.52;
 			}}
 		>
 			<T.MeshStandardMaterial {color} />
-			{#if selectable}
-				<Outlines color="white" />
-			{:else}
-				<Outlines color="black" />
-			{/if}
+			<Outlines
+				color={selectable.length > 0
+					? (() => {
+						const t = (time / SWAP_PERIOD) % selectable.length;
+						const fromIdx = selectable[Math.floor(t) % selectable.length] % LINE_COLORS.length;
+						const toIdx = selectable[(Math.floor(t) + 1) % selectable.length] % LINE_COLORS.length;
+						const frac = t - Math.floor(t);
+						const c = new Color(LINE_COLORS[fromIdx]).lerp(new Color(LINE_COLORS[toIdx]), frac);
+						return `#${c.getHexString()}`;
+					})()
+					: "black"}
+				thickness={selectable.length > 0
+					? (isMiddle ? 0.12 + 0.04 * Math.sin(time * 3) : 0.06)
+					: 0.05}
+			/>
 			<Edges color="black" />
 		</T.Mesh>
 	{:catch _error}

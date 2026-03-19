@@ -7,13 +7,15 @@
         placed,
         position,
         selectable,
+        isMiddle = false,
         finalPosition = [0, 0, 0],
         booped,
     }: {
         piece: number;
         placed: boolean;
         position: any;
-        selectable: boolean;
+        selectable: number[];
+        isMiddle?: boolean;
         finalPosition?: any[];
         booped: boolean;
     } = $props();
@@ -23,8 +25,8 @@
 </script>
 
 {#if kitten}
-    <Kitten {color} {selectable} {placed} {position} {finalPosition} {booped} />
+    <Kitten {color} {selectable} {isMiddle} {placed} {position} {finalPosition} {booped} />
 {:else}
-    <Cat {color} {selectable} {placed} {position} {finalPosition} {booped} />
+    <Cat {color} {selectable} {isMiddle} {placed} {position} {finalPosition} {booped} />
 {/if}
 

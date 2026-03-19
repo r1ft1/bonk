@@ -3,12 +3,15 @@
 	import Scene from "./Scene.svelte";
 	import Renderer from "./Renderer.svelte";
 	import GameBrowser from "./GameBrowser.svelte";
-	import { inGame, gameState, lastClickPos, pieceChoice, noPiecesMsg, webSocket, p1WebSocket, p2WebSocket, newGameState } from "./stores";
+	import { inGame, gameState, lastClickPos, pieceChoice, noPiecesMsg, webSocket, p1WebSocket, p2WebSocket, newGameState, graduatingLines } from "./stores";
 	import GameInfo from "./GameInfo.svelte";
 
 	let boopTexts: { id: number; x: number; y: number; color: string }[] = $state([]);
 	let boopId = 0;
 	let prevTurn = -1;
+	let upgradeTexts: { id: number; x: number; y: number; color: string }[] = $state([]);
+	let upgradeId = 0;
+	let prevGraduatingLength = 0;
 
 	const startOver = () => {
 		if ($webSocket) $webSocket.close();
@@ -35,6 +38,20 @@
 			}
 		}
 		prevTurn = turn;
+	});
+
+	$effect(() => {
+		const lines = $graduatingLines;
+		if (lines.length > prevGraduatingLength) {
+			const latest = lines[lines.length - 1];
+			const color = latest.tile === 1 ? "orange" : "lightblue";
+			const id = upgradeId++;
+			upgradeTexts = [...upgradeTexts, { id, x: $lastClickPos.x, y: $lastClickPos.y, color }];
+			setTimeout(() => {
+				upgradeTexts = upgradeTexts.filter(t => t.id !== id);
+			}, 1000);
+		}
+		prevGraduatingLength = lines.length;
 	});
 </script>
 
@@ -87,6 +104,12 @@
 		style="left: {boop.x}px; top: {boop.y}px; color: {boop.color};"
 	>
 		boop!
+	</span>
+{/each}
+
+{#each upgradeTexts as t (t.id)}
+	<span class="upgrade-text" style="left: {t.x}px; top: {t.y}px; color: {t.color};">
+		Upgraded!
 	</span>
 {/each}
 
@@ -233,6 +256,16 @@
 		color: #5a4a3a;
 		transform: translate(-50%, -100%);
 		animation: boop-float 0.8s ease-out forwards;
+	}
+
+	.upgrade-text {
+		position: fixed;
+		z-index: 100;
+		pointer-events: none;
+		font-family: "Cherry Bomb One", serif;
+		font-size: 1.8rem;
+		transform: translate(-50%, -100%);
+		animation: boop-float 1.0s ease-out forwards;
 	}
 
 	@keyframes boop-float {

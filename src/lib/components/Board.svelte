@@ -16,9 +16,13 @@
 		p2WebSocket,
 		lastClickPos,
 		noPiecesMsg,
+		graduatingLines,
+		boopedOffPieces,
 	} from "./stores";
 	import { animate } from "motion";
 	import Piece from "./Piece.svelte";
+	import GraduatingLine from "./GraduatingLine.svelte";
+	import FlyingPiece from "./FlyingPiece.svelte";
 
 	const map = useTexture("/tile.png", {
 		transform: (texture) => {
@@ -108,42 +112,18 @@
 		console.log("lastmove: ", lastMove, "color: ", color);
 	});
 
-	let triggered = false;
-
-	function isPositionInLines(x: number, y: number) {
-		const position = { x: x, y: y };
-
-		if ($gameState.lines == null) {
-			return false;
-		}
-		//lines = [[{x: 0, y: 0}, {x: 1, y: 1}, {x: 2, y: 2}], [{x: 0, y: 0}, {x: 1, y: 0}, {x: 2, y: 0}]]
-		let count = 0;
-		$gameState.lines.forEach((line) => {
-			//const someOutcome = line.some(
-			//	(linePosition) =>
-			//		linePosition.x === position.x &&
-			//		linePosition.y === position.y,
-			//);
-			//
-			//console.log("someOutcome: ", someOutcome);
-			//if (someOutcome) {
-			//	count++;
-			//	triggered = true;
-			//	return true;
-			//}
-			line.forEach((linePosition) => {
-				if (
-					linePosition.x == position.x &&
-					linePosition.y == position.y
-				) {
-					console.log("found position in line");
-					count++;
-					triggered = true;
-					return true;
-				}
-			});
+	function lineIndicesFor(x: number, y: number): number[] {
+		if ($gameState.lines == null) return [];
+		const indices: number[] = [];
+		$gameState.lines.forEach((line, idx) => {
+			if (line.some(pos => pos.x === x && pos.y === y)) indices.push(idx);
 		});
-		return false;
+		return indices;
+	}
+
+	function isMiddlePiece(x: number, y: number): boolean {
+		if ($gameState.lines == null) return false;
+		return $gameState.lines.some(line => line[1].x === x && line[1].y === y);
 	}
 
 	//mobile touch down will move highlightMesh to the touched position
@@ -160,7 +140,7 @@
 			$gameState.state == "MULTIPLE_WAITING" &&
 			$gameState.lines != null
 		) {
-			console.log("Multiple waiting!!!");
+			console.log("Multiple waiting!!!", JSON.stringify($gameState.lines));
 		}
 	});
 	//
@@ -221,7 +201,8 @@
 				position={[x - 2.5, 0.52, y - 2.5]}
 				placed={false}
 				booped={false}
-				selectable={false}
+				selectable={$gameState.state === "MULTIPLE_WAITING" ? lineIndicesFor(x, y) : []}
+			isMiddle={$gameState.state === "MULTIPLE_WAITING" && isMiddlePiece(x, y)}
 			/>
 		{/if}
 	{/each}
@@ -256,6 +237,23 @@
 	placed={true}
 	booped={false}
 /> -->
+
+{#each $graduatingLines as line (line)}
+  <GraduatingLine
+    positions={line.positions}
+    tile={line.tile}
+    onDone={() => { $graduatingLines = $graduatingLines.filter(l => l !== line); }}
+  />
+{/each}
+
+{#each $boopedOffPieces as piece (piece.id)}
+  <FlyingPiece
+    tile={piece.tile}
+    startPos={piece.startPos}
+    direction={piece.direction}
+    onDone={() => { $boopedOffPieces = $boopedOffPieces.filter(p => p !== piece); }}
+  />
+{/each}
 
 <!-- Invisible Ground Plane -->
 <T.Mesh

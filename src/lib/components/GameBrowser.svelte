@@ -8,9 +8,13 @@
         webSocket,
         p1WebSocket,
         p2WebSocket,
+        graduatingLines,
+        boopedOffPieces,
     } from "./stores";
     import type { ServerMessage } from "./stores";
     import { PUBLIC_SERVER_WS_URL, PUBLIC_SERVER_HTTP_URL } from "$env/static/public";
+
+    let boopOffIdCounter = 0;
 
     const fetchGames = async () => {
         const response = await fetch(
@@ -61,6 +65,27 @@
         $webSocket.addEventListener("message", messageEvent);
     };
 
+    // Returns 3 board positions that form a consecutive line, or null
+    function findConsecutiveLine(pts: { x: number; y: number }[]): { x: number; y: number }[] | null {
+        for (let i = 0; i < pts.length; i++) {
+            for (let j = i + 1; j < pts.length; j++) {
+                for (let k = j + 1; k < pts.length; k++) {
+                    const trio = [pts[i], pts[j], pts[k]];
+                    // Sort so we can check consecutive order
+                    trio.sort((a, b) => a.x !== b.x ? a.x - b.x : a.y - b.y);
+                    const [a, b, c] = trio;
+                    const dx1 = b.x - a.x, dy1 = b.y - a.y;
+                    const dx2 = c.x - b.x, dy2 = c.y - b.y;
+                    // Consecutive means equal steps in the same direction
+                    if (dx1 === dx2 && dy1 === dy2 && (Math.abs(dx1) + Math.abs(dy1)) > 0) {
+                        return trio;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
     const messageEvent = (event: MessageEvent<any>) => {
         const msg: ServerMessage = JSON.parse(event.data);
         if (msg.type == "ping") {
@@ -94,7 +119,93 @@
             return;
         }
         if (msg.type != "error") {
-            $gameState = msg.payload;
+            const oldState = $gameState;
+            const newPayload = msg.payload;
+            const oldBoard = oldState.board;
+            const newBoard = newPayload.board as number[][];
+
+            // Detect graduation: cats count increased for a player
+            for (const [playerTile, oldCats, newCats] of [
+                [1, oldState.p1?.cats ?? 0, newPayload.p1?.cats ?? 0],
+                [8, oldState.p2?.cats ?? 0, newPayload.p2?.cats ?? 0],
+            ] as [number, number, number][]) {
+                if (newCats > oldCats) {
+                    // Find kittens of this player that disappeared
+                    const removed: { x: number; y: number }[] = [];
+                    for (let y = 0; y < 6; y++) {
+                        for (let x = 0; x < 6; x++) {
+                            if (oldBoard?.[y]?.[x] === playerTile && newBoard?.[y]?.[x] === 0) {
+                                removed.push({ x, y });
+                            }
+                        }
+                    }
+                    // Also consider the placed piece — it may have been placed then immediately graduated
+                    const px = newPayload.placed?.position?.x;
+                    const py = newPayload.placed?.position?.y;
+                    if (px != null && py != null && !removed.some(p => p.x === px && p.y === py)) {
+                        removed.push({ x: px, y: py });
+                    }
+                    // Find 3 consecutive collinear pieces among removed
+                    const line = findConsecutiveLine(removed);
+                    if (line) {
+                        const worldPositions = line.map(
+                            p => [p.x - 2.5, 0.52, p.y - 2.5] as [number, number, number]
+                        );
+                        $graduatingLines = [
+                            ...$graduatingLines,
+                            { positions: worldPositions, tile: playerTile },
+                        ];
+                    }
+                }
+            }
+
+            // Detect pieces booped off the board
+            // A piece is booped off if: it was on previousBoard, gone on newBoard,
+            // not graduated, not the placed piece, and the boop direction goes out of bounds.
+            // We use previousBoard from the server (the board BEFORE this move) rather than
+            // the client's old state, and check direction-based out-of-bounds instead of
+            // relying on boopMovement (which only tracks the last on-board boop due to a server bug).
+            const prevBoard = newPayload.previousBoard as number[][];
+            const graduatedPositions = new Set<string>();
+            for (const line of $graduatingLines) {
+                for (const pos of line.positions) {
+                    graduatedPositions.add(`${pos[0] + 2.5},${pos[2] + 2.5}`);
+                }
+            }
+            const placedX = newPayload.placed?.position?.x ?? -1;
+            const placedY = newPayload.placed?.position?.y ?? -1;
+
+            const newBoopedOff: typeof $boopedOffPieces = [];
+            for (let y = 0; y < 6; y++) {
+                for (let x = 0; x < 6; x++) {
+                    const prev = prevBoard?.[y]?.[x];
+                    const next = newBoard?.[y]?.[x];
+                    if (prev && prev !== 0 && next === 0) {
+                        const key = `${x},${y}`;
+                        // Skip the placed piece position and graduated positions
+                        if ((x === placedX && y === placedY) || graduatedPositions.has(key)) continue;
+                        // Determine boop direction from placed piece toward this piece
+                        const dx = Math.sign(x - placedX);
+                        const dy = Math.sign(y - placedY);
+                        // A piece is only booped off if the next cell in boop direction is out of bounds
+                        const nextX = x + dx;
+                        const nextY = y + dy;
+                        if (nextX < 0 || nextX >= 6 || nextY < 0 || nextY >= 6) {
+                            newBoopedOff.push({
+                                id: boopOffIdCounter++,
+                                startPos: [x - 2.5, 0.52, y - 2.5],
+                                tile: prev,
+                                direction: [dx, dy],
+                            });
+                        }
+                    }
+                }
+            }
+            if (newBoopedOff.length > 0) {
+                $boopedOffPieces = [...$boopedOffPieces, ...newBoopedOff];
+            }
+
+            $gameState = newPayload;
             console.log($gameState);
         }
         if (msg.type == "error" && msg.payload == "Could not join game") {

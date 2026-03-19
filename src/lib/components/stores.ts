@@ -39,7 +39,7 @@ export type ServerMessage = {
 	payload: GameState | any;
 };
 
-type Player = {
+export type Player = {
 	kittens: number;
 	cats: number;
 	placed: number;
@@ -114,3 +114,17 @@ export let inGame = writable(false);
 export let waitingGameIDs = writable("");
 export let lastClickPos = writable({ x: 0, y: 0 });
 export let noPiecesMsg = writable("");
+
+export type GraduatingLineData = {
+	positions: [number, number, number][]; // 3 world-space [x, y, z]
+	tile: number; // 1 (P1 kitten) or 8 (P2 kitten)
+};
+export let graduatingLines = writable<GraduatingLineData[]>([]);
+
+export type BoopedOffData = {
+	id: number;
+	startPos: [number, number, number];
+	tile: number; // 1, 2, 8, or 9
+	direction: [number, number]; // boop direction in board coords (dx, dy)
+};
+export let boopedOffPieces = writable<BoopedOffData[]>([]);

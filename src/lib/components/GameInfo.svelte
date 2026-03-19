@@ -1,6 +1,16 @@
 <script lang="ts">
 	import { gameState } from "./stores";
+	import type { Player } from "./stores";
 </script>
+
+{#snippet playerBox(name: string, player: Player, color: string)}
+	<h3 style="color: {color}">{name}</h3>
+	<table class="stats-table"><tbody>
+		<tr><td class="stat-label">Kittens ({player.kittens})</td><td class="stat-faces">{':3 '.repeat(player.kittens).trim()}</td></tr>
+		<tr><td class="stat-label">Cats ({player.cats})</td><td class="stat-faces">{'>:3 '.repeat(player.cats).trim()}</td></tr>
+		<tr><td class="stat-label">Placed</td><td class="stat-faces">{player.placed}</td></tr>
+	</tbody></table>
+{/snippet}
 
 <div class="game-info">
 	<h1 class="title">boop.</h1>
@@ -12,29 +22,24 @@
 		{/if}
 	</p>
 	<p class="turn-number">Turn {$gameState.turnNumber}</p>
-	{#if $gameState.state === "MAX_WAITING"}
-		<p class="state-alert"><strong>Board full!</strong> Select a piece to remove. Kittens graduate into cats!</p>
-	{:else if $gameState.state === "MULTIPLE_WAITING"}
-		<p class="state-alert"><strong>Multiple rows!</strong> Click the middle piece of a row to select it. Kittens graduate into cats!</p>
-	{/if}
 </div>
 
+{#if $gameState.state === "MAX_WAITING"}
+	<div class="board-message">
+		<p class="state-alert"><strong>Board full!</strong> Select a piece to remove. Kittens graduate into cats!</p>
+	</div>
+{:else if $gameState.state === "MULTIPLE_WAITING"}
+	<div class="board-message">
+		<p class="state-alert"><strong>Multiple rows!</strong> Click the middle piece of a row to select it. Kittens graduate into cats!</p>
+	</div>
+{/if}
+
 <div class="player-box player-1">
-	<h3 style="color: orange">Player 1</h3>
-	<table class="stats-table"><tbody>
-		<tr><td class="stat-label">Kittens ({$gameState.p1.kittens})</td><td class="stat-faces">{':3 '.repeat($gameState.p1.kittens).trim()}</td></tr>
-		<tr><td class="stat-label">Cats ({$gameState.p1.cats})</td><td class="stat-faces">{'>:3 '.repeat($gameState.p1.cats).trim()}</td></tr>
-		<tr><td class="stat-label">Placed</td><td class="stat-faces">{$gameState.p1.placed}</td></tr>
-	</tbody></table>
+	{@render playerBox("Player 1", $gameState.p1, "orange")}
 </div>
 
 <div class="player-box player-2">
-	<h3 style="color: lightblue">Player 2</h3>
-	<table class="stats-table"><tbody>
-		<tr><td class="stat-label">Kittens ({$gameState.p2.kittens})</td><td class="stat-faces">{':3 '.repeat($gameState.p2.kittens).trim()}</td></tr>
-		<tr><td class="stat-label">Cats ({$gameState.p2.cats})</td><td class="stat-faces">{'>:3 '.repeat($gameState.p2.cats).trim()}</td></tr>
-		<tr><td class="stat-label">Placed</td><td class="stat-faces">{$gameState.p2.placed}</td></tr>
-	</tbody></table>
+	{@render playerBox("Player 2", $gameState.p2, "lightblue")}
 </div>
 
 <style>
@@ -79,6 +84,14 @@
 		margin: 0;
 		letter-spacing: 0.05em;
 		text-transform: uppercase;
+	}
+
+	.board-message {
+		position: fixed;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -320%);
+		z-index: 20;
 	}
 
 	.state-alert {
