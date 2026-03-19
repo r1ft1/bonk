@@ -23,8 +23,11 @@ Command: npx @threlte/gltf@2.0.3 kitten.glb
 	let arcStart = { x: 0, y: 0, z: 0 };
 	let arcProgress = 0;
 	let arcAnimating = false;
+	let settleAnimating = false;
+	let settleProgress = 0;
 	const ARC_DURATION = 0.6;
 	const ARC_HEIGHT = 5;
+	const SETTLE_DURATION = 0.15;
 
 	function easeOutCubic(t: number): number {
 		return 1 - Math.pow(1 - t, 3);
@@ -65,16 +68,11 @@ Command: npx @threlte/gltf@2.0.3 kitten.glb
 			arcProgress += delta / ARC_DURATION;
 			if (arcProgress >= 1) {
 				arcAnimating = false;
-				ref.position.set(0, 0.3, 0);
-				animate(ref.position, { y: 0 }, {
-					duration: 0.4,
-					ease: "easeInOut",
-				});
+				ref.position.set(0, 0, 0);
 			} else {
 				const t = easeOutCubic(arcProgress);
 				ref.position.x = arcStart.x * (1 - t);
 				ref.position.z = arcStart.z * (1 - t);
-				// Lerp Y from start to 0, plus parabolic arc
 				ref.position.y = arcStart.y * (1 - t) + ARC_HEIGHT * 4 * t * (1 - t);
 			}
 		}

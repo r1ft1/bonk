@@ -6,15 +6,28 @@
 	import { inGame } from "./stores";
 	const { camera, renderMode } = useThrelte();
 	renderMode.set("always");
+
+	let innerHeight = $state(window.innerHeight);
+	let cameraRef: any = $state(null);
+
+	$effect(() => {
+		if (!cameraRef) return;
+		if (innerHeight < 900) {
+			cameraRef.position.set(0, 14, 6);
+			cameraRef.lookAt(0, -1, 0);
+		} else {
+			cameraRef.position.set(10, 10, 10);
+			cameraRef.lookAt(0, 1, 0);
+		}
+	});
 </script>
+
+<svelte:window bind:innerHeight={innerHeight} />
 
 <T.PerspectiveCamera
 	makeDefault
 	position={[10, 10, 10]}
-	oncreate={(ref) => {
-		ref.lookAt(0, 1, 0);
-		// camera = ref;
-	}}
+	oncreate={(ref) => { cameraRef = ref; }}
 >
 </T.PerspectiveCamera>
 

@@ -29,12 +29,15 @@
 				(b) => b.position.x !== 0 || b.position.y !== 0 || b.finalPosition.x !== 0 || b.finalPosition.y !== 0
 			);
 			if (hasRealBoop) {
-				const id = boopId++;
-				const boopColor = (turn - 1) % 2 === 0 ? "orange" : "lightblue";
-				boopTexts = [...boopTexts, { id, x: $lastClickPos.x, y: $lastClickPos.y, color: boopColor }];
+				// Delay to match the sliding/push animation timing
 				setTimeout(() => {
-					boopTexts = boopTexts.filter((t) => t.id !== id);
-				}, 800);
+					const id = boopId++;
+					const boopColor = (turn - 1) % 2 === 0 ? "orange" : "lightblue";
+					boopTexts = [...boopTexts, { id, x: $lastClickPos.x, y: $lastClickPos.y, color: boopColor }];
+					setTimeout(() => {
+						boopTexts = boopTexts.filter((t) => t.id !== id);
+					}, 800);
+				}, 300);
 			}
 		}
 		prevTurn = turn;

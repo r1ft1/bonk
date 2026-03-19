@@ -126,5 +126,14 @@ export type BoopedOffData = {
 	startPos: [number, number, number];
 	tile: number; // 1, 2, 8, or 9
 	direction: [number, number]; // boop direction in board coords (dx, dy)
+	delay: number; // seconds to wait before animating
 };
 export let boopedOffPieces = writable<BoopedOffData[]>([]);
+
+export type SlidingPieceData = {
+	id: number;
+	startPos: [number, number, number];
+	endPos: [number, number, number];
+	tile: number;
+};
+export let slidingPieces = writable<SlidingPieceData[]>([]);

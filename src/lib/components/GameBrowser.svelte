@@ -10,11 +10,14 @@
         p2WebSocket,
         graduatingLines,
         boopedOffPieces,
+        slidingPieces,
     } from "./stores";
     import type { ServerMessage } from "./stores";
     import { PUBLIC_SERVER_WS_URL, PUBLIC_SERVER_HTTP_URL } from "$env/static/public";
 
     let boopOffIdCounter = 0;
+    let slidingIdCounter = 0;
+    let lastProcessedTurn = -1;
 
     const fetchGames = async () => {
         const response = await fetch(
@@ -119,8 +122,17 @@
             return;
         }
         if (msg.type != "error") {
-            const oldState = $gameState;
             const newPayload = msg.payload;
+            const newTurn = newPayload.turnNumber ?? -1;
+
+            // Skip duplicate processing (both p1/p2 sockets receive all messages)
+            if (newTurn === lastProcessedTurn) {
+                $gameState = newPayload;
+                // Fall through to handle joined/gameState UI logic below
+            } else {
+            lastProcessedTurn = newTurn;
+
+            const oldState = $gameState;
             const oldBoard = oldState.board;
             const newBoard = newPayload.board as number[][];
 
@@ -159,38 +171,43 @@
                 }
             }
 
-            // Detect pieces booped off the board
-            // A piece is booped off if: it was on previousBoard, gone on newBoard,
-            // not graduated, not the placed piece, and the boop direction goes out of bounds.
-            // We use previousBoard from the server (the board BEFORE this move) rather than
-            // the client's old state, and check direction-based out-of-bounds instead of
-            // relying on boopMovement (which only tracks the last on-board boop due to a server bug).
+            // Use boopMovement from server to build animations
+            const placedX = newPayload.placed?.position?.x ?? -1;
+            const placedY = newPayload.placed?.position?.y ?? -1;
             const prevBoard = newPayload.previousBoard as number[][];
+            const boopMoves = newPayload.boopMovement as { position: { x: number; y: number }; finalPosition: { x: number; y: number }; tile: number }[] ?? [];
+
+            // Sliding pieces (booped on-board)
+            const newSliding: typeof $slidingPieces = [];
+            for (const bm of boopMoves) {
+                newSliding.push({
+                    id: slidingIdCounter++,
+                    startPos: [bm.position.x - 2.5, 0.52, bm.position.y - 2.5],
+                    endPos: [bm.finalPosition.x - 2.5, 0.52, bm.finalPosition.y - 2.5],
+                    tile: bm.tile,
+                });
+            }
+
+            // Booped-off pieces: adjacent to placed, disappeared, destination out of bounds
+            const newBoopedOff: typeof $boopedOffPieces = [];
             const graduatedPositions = new Set<string>();
             for (const line of $graduatingLines) {
                 for (const pos of line.positions) {
                     graduatedPositions.add(`${pos[0] + 2.5},${pos[2] + 2.5}`);
                 }
             }
-            const placedX = newPayload.placed?.position?.x ?? -1;
-            const placedY = newPayload.placed?.position?.y ?? -1;
-
-            const newBoopedOff: typeof $boopedOffPieces = [];
             for (let y = 0; y < 6; y++) {
                 for (let x = 0; x < 6; x++) {
                     const prev = prevBoard?.[y]?.[x];
                     const next = newBoard?.[y]?.[x];
                     if (prev && prev !== 0 && next === 0) {
-                        const key = `${x},${y}`;
-                        // Skip the placed piece position and graduated positions
-                        if ((x === placedX && y === placedY) || graduatedPositions.has(key)) continue;
-                        // Determine boop direction from placed piece toward this piece
+                        if ((x === placedX && y === placedY) || graduatedPositions.has(`${x},${y}`)) continue;
+                        if (Math.abs(x - placedX) > 1 || Math.abs(y - placedY) > 1) continue;
                         const dx = Math.sign(x - placedX);
                         const dy = Math.sign(y - placedY);
-                        // A piece is only booped off if the next cell in boop direction is out of bounds
-                        const nextX = x + dx;
-                        const nextY = y + dy;
-                        if (nextX < 0 || nextX >= 6 || nextY < 0 || nextY >= 6) {
+                        const destX = x + dx;
+                        const destY = y + dy;
+                        if (destX < 0 || destX >= 6 || destY < 0 || destY >= 6) {
                             newBoopedOff.push({
                                 id: boopOffIdCounter++,
                                 startPos: [x - 2.5, 0.52, y - 2.5],
@@ -201,12 +218,29 @@
                     }
                 }
             }
+
+            // Animation sequencing:
+            // 1. Update state (placed piece appears)
+            // 2. Sliding pieces animate after 0.3s delay (0.25s duration)
+            // 3. Booped-off pieces fall after slides finish
+            const flyDelay = newSliding.length > 0 ? 0.6 : 0.3;
+
+            // Set delay on booped-off pieces
+            for (const b of newBoopedOff) {
+                b.delay = flyDelay;
+            }
+
+            if (newSliding.length > 0) {
+                $slidingPieces = [...$slidingPieces, ...newSliding];
+            }
+
             if (newBoopedOff.length > 0) {
                 $boopedOffPieces = [...$boopedOffPieces, ...newBoopedOff];
             }
 
             $gameState = newPayload;
             console.log($gameState);
+            } // end duplicate guard
         }
         if (msg.type == "error" && msg.payload == "Could not join game") {
             console.log("Could not join game");
@@ -358,9 +392,10 @@
         font-size: 0.85rem;
         font-weight: 600;
         color: #9a8a7a;
-        margin: 0 0 1.5rem 0;
+        margin: 0.5rem 0 1.5rem 0;
         letter-spacing: 0.12em;
         text-transform: uppercase;
+        white-space: nowrap;
     }
 
     .buttons {
