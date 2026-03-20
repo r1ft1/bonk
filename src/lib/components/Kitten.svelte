@@ -9,7 +9,7 @@ Command: npx @threlte/gltf@2.0.3 kitten.glb
 	import { T, useTask } from "@threlte/core";
 	import { useGltf, Outlines } from "@threlte/extras";
 	import { animate } from "motion";
-	import { gameState } from "./stores";
+	import { gameState, isMobile } from "./stores";
 
 	const LINE_COLORS = ["#00ffff", "#ff00ff", "#ffff00", "#00ff00"];
 	const SWAP_PERIOD = 1.5;
@@ -132,6 +132,7 @@ Command: npx @threlte/gltf@2.0.3 kitten.glb
 			material={gltf.nodes.Kitten.material}
 			{position}
 			scale={[0.5, 0.5, 0.5]}
+			rotation.y={$isMobile ? -Math.PI / 2 : 0}
 			oncreate={(ref) => {
 				kittenRef = ref;
 			}}

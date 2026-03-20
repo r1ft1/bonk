@@ -19,6 +19,13 @@
     let slidingIdCounter = 0;
     let lastProcessedTurn = -1;
 
+    type ServerBooped = {
+        direction: { x: number; y: number };
+        position: { x: number; y: number };
+        tile: number;
+        boopedBy: number;
+    };
+
     const fetchGames = async () => {
         const response = await fetch(
             PUBLIC_SERVER_HTTP_URL + "/getWaitingGame",
@@ -68,26 +75,6 @@
         $webSocket.addEventListener("message", messageEvent);
     };
 
-    // Returns 3 board positions that form a consecutive line, or null
-    function findConsecutiveLine(pts: { x: number; y: number }[]): { x: number; y: number }[] | null {
-        for (let i = 0; i < pts.length; i++) {
-            for (let j = i + 1; j < pts.length; j++) {
-                for (let k = j + 1; k < pts.length; k++) {
-                    const trio = [pts[i], pts[j], pts[k]];
-                    // Sort so we can check consecutive order
-                    trio.sort((a, b) => a.x !== b.x ? a.x - b.x : a.y - b.y);
-                    const [a, b, c] = trio;
-                    const dx1 = b.x - a.x, dy1 = b.y - a.y;
-                    const dx2 = c.x - b.x, dy2 = c.y - b.y;
-                    // Consecutive means equal steps in the same direction
-                    if (dx1 === dx2 && dy1 === dy2 && (Math.abs(dx1) + Math.abs(dy1)) > 0) {
-                        return trio;
-                    }
-                }
-            }
-        }
-        return null;
-    }
 
     const messageEvent = (event: MessageEvent<any>) => {
         const msg: ServerMessage = JSON.parse(event.data);
@@ -133,51 +120,26 @@
             lastProcessedTurn = newTurn;
 
             const oldState = $gameState;
-            const oldBoard = oldState.board;
-            const newBoard = newPayload.board as number[][];
 
-            // Detect graduation: cats count increased for a player
-            for (const [playerTile, oldCats, newCats] of [
-                [1, oldState.p1?.cats ?? 0, newPayload.p1?.cats ?? 0],
-                [8, oldState.p2?.cats ?? 0, newPayload.p2?.cats ?? 0],
-            ] as [number, number, number][]) {
-                if (newCats > oldCats) {
-                    // Find kittens of this player that disappeared
-                    const removed: { x: number; y: number }[] = [];
-                    for (let y = 0; y < 6; y++) {
-                        for (let x = 0; x < 6; x++) {
-                            if (oldBoard?.[y]?.[x] === playerTile && newBoard?.[y]?.[x] === 0) {
-                                removed.push({ x, y });
-                            }
-                        }
-                    }
-                    // Also consider the placed piece — it may have been placed then immediately graduated
-                    const px = newPayload.placed?.position?.x;
-                    const py = newPayload.placed?.position?.y;
-                    if (px != null && py != null && !removed.some(p => p.x === px && p.y === py)) {
-                        removed.push({ x: px, y: py });
-                    }
-                    // Find 3 consecutive collinear pieces among removed
-                    const line = findConsecutiveLine(removed);
-                    if (line) {
-                        const worldPositions = line.map(
-                            p => [p.x - 2.5, 0.52, p.y - 2.5] as [number, number, number]
-                        );
-                        $graduatingLines = [
-                            ...$graduatingLines,
-                            { positions: worldPositions, tile: playerTile },
-                        ];
-                    }
+            // Graduation: use lines from server directly
+            const serverLines = newPayload.lines as { x: number; y: number }[][] | null;
+            if (serverLines && serverLines.length > 0) {
+                // Determine which player graduated from the placed piece
+                const placedPiece = newPayload.placed?.piece ?? 0;
+                const playerTile = (placedPiece === 1 || placedPiece === 2) ? 1 : 8;
+                for (const line of serverLines) {
+                    const worldPositions = line.map(
+                        (p: { x: number; y: number }) => [p.x - 2.5, 0.52, p.y - 2.5] as [number, number, number]
+                    );
+                    $graduatingLines = [
+                        ...$graduatingLines,
+                        { positions: worldPositions, tile: playerTile },
+                    ];
                 }
             }
 
-            // Use boopMovement from server to build animations
-            const placedX = newPayload.placed?.position?.x ?? -1;
-            const placedY = newPayload.placed?.position?.y ?? -1;
-            const prevBoard = newPayload.previousBoard as number[][];
+            // Sliding pieces: use boopMovement from server
             const boopMoves = newPayload.boopMovement as { position: { x: number; y: number }; finalPosition: { x: number; y: number }; tile: number }[] ?? [];
-
-            // Sliding pieces (booped on-board)
             const newSliding: typeof $slidingPieces = [];
             for (const bm of boopMoves) {
                 newSliding.push({
@@ -188,35 +150,16 @@
                 });
             }
 
-            // Booped-off pieces: adjacent to placed, disappeared, destination out of bounds
+            // Booped-off pieces: use booped from server
+            const serverBooped = (newPayload.booped as ServerBooped[]) ?? [];
             const newBoopedOff: typeof $boopedOffPieces = [];
-            const graduatedPositions = new Set<string>();
-            for (const line of $graduatingLines) {
-                for (const pos of line.positions) {
-                    graduatedPositions.add(`${pos[0] + 2.5},${pos[2] + 2.5}`);
-                }
-            }
-            for (let y = 0; y < 6; y++) {
-                for (let x = 0; x < 6; x++) {
-                    const prev = prevBoard?.[y]?.[x];
-                    const next = newBoard?.[y]?.[x];
-                    if (prev && prev !== 0 && next === 0) {
-                        if ((x === placedX && y === placedY) || graduatedPositions.has(`${x},${y}`)) continue;
-                        if (Math.abs(x - placedX) > 1 || Math.abs(y - placedY) > 1) continue;
-                        const dx = Math.sign(x - placedX);
-                        const dy = Math.sign(y - placedY);
-                        const destX = x + dx;
-                        const destY = y + dy;
-                        if (destX < 0 || destX >= 6 || destY < 0 || destY >= 6) {
-                            newBoopedOff.push({
-                                id: boopOffIdCounter++,
-                                startPos: [x - 2.5, 0.52, y - 2.5],
-                                tile: prev,
-                                direction: [dx, dy],
-                            });
-                        }
-                    }
-                }
+            for (const b of serverBooped) {
+                newBoopedOff.push({
+                    id: boopOffIdCounter++,
+                    startPos: [b.position.x - 2.5, 0.52, b.position.y - 2.5],
+                    tile: b.tile,
+                    direction: [b.direction.x, b.direction.y],
+                });
             }
 
             // Animation sequencing:
@@ -224,8 +167,6 @@
             // 2. Sliding pieces animate after 0.3s delay (0.25s duration)
             // 3. Booped-off pieces fall after slides finish
             const flyDelay = newSliding.length > 0 ? 0.6 : 0.3;
-
-            // Set delay on booped-off pieces
             for (const b of newBoopedOff) {
                 b.delay = flyDelay;
             }

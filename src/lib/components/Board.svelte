@@ -19,6 +19,7 @@
 		graduatingLines,
 		boopedOffPieces,
 		slidingPieces,
+		isMobile as isMobileStore,
 	} from "./stores";
 	import { animate } from "motion";
 	import Piece from "./Piece.svelte";
@@ -106,8 +107,10 @@
 
 	//const { camera, scene, renderMode, autoRender } = useThrelte();
 
+	let innerWidth = $state(window.innerWidth);
 	let innerHeight = $state(window.innerHeight);
-	let isMobile = $derived(innerHeight < 900);
+	let isMobile = $derived(innerWidth < 768);
+	$effect(() => { $isMobileStore = isMobile; });
 
 	let planeMesh: THREE.Mesh;
 	let highlightMesh: THREE.Mesh;
@@ -163,7 +166,7 @@
 	});
 </script>
 
-<svelte:window bind:innerHeight={innerHeight} />
+<svelte:window bind:innerWidth={innerWidth} bind:innerHeight={innerHeight} />
 
 <!-- Bed -->
 <!-- Mattress (the game board surface) -->
@@ -256,9 +259,11 @@
 </T.Mesh>
 
 
-<!-- Cardboard boxes (P1 back-left, P2 front-center — beside the bed) -->
-<CardboardBox position={[-4.5, -1.5, -1]} rotation={0.15} scale={1.3} kittens={$gameState.p1.kittens} cats={$gameState.p1.cats} color="orange" />
-<CardboardBox position={[0, -1.5, 4.8]} rotation={0.7} scale={1.3} kittens={$gameState.p2.kittens} cats={$gameState.p2.cats} color="lightblue" />
+<!-- Cardboard boxes (hidden on mobile — pieces shown in overlay) -->
+{#if !isMobile}
+	<CardboardBox position={[-4.5, -1.5, -1]} rotation={0.15} scale={1.3} kittens={$gameState.p1.kittens} cats={$gameState.p1.cats} color="orange" />
+	<CardboardBox position={[0, -1.5, 4.8]} rotation={0.7} scale={1.3} kittens={$gameState.p2.kittens} cats={$gameState.p2.cats} color="lightblue" />
+{/if}
 
 <!-- Piece generation from $gameState.board -->
 <!--{#if $gameState.lines != null} 

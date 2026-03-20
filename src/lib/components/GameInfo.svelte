@@ -1,6 +1,13 @@
 <script lang="ts">
-	import { gameState } from "./stores";
+	import { gameState, isMobile } from "./stores";
 	import type { Player } from "./stores";
+
+	// SVG silhouettes traced from 3D model side profiles
+	// Kitten: low body, tail curving up on left, ears on right
+	const kittenSvg = `<svg viewBox="0 0 20 16" fill="currentColor"><path d="M1 14 L1 10 L2 10 L2 8 L1 6 L1 4 L2 3 L3 4 L3 6 L4 7 L5 8 L8 8 L9 6 L10 5 L12 5 L13 6 L14 8 L16 8 L17 6 L18 5 L19 6 L19 8 L18 9 L18 14 Z"/></svg>`;
+
+	// Cat: tall trapezoid body, V-notch ears at top
+	const catSvg = `<svg viewBox="0 0 16 20" fill="currentColor"><path d="M2 18 L4 6 L3 4 L3 2 L5 1 L6 3 L7 5 L8 6 L9 5 L10 3 L11 1 L13 2 L13 4 L12 6 L14 18 Z"/></svg>`;
 </script>
 
 {#snippet playerBox(name: string, player: Player, color: string)}
@@ -12,17 +19,55 @@
 	</tbody></table>
 {/snippet}
 
-<div class="game-info">
-	<h1 class="title">boop.</h1>
-	<p class="turn-label" style="color: {$gameState.turnNumber % 2 == 0 ? 'orange' : 'lightblue'}">
-		{#if $gameState.turnNumber % 2 == 0}
-			Player 1's Turn
-		{:else}
-			Player 2's Turn
-		{/if}
-	</p>
-	<p class="turn-number">Turn {$gameState.turnNumber}</p>
-</div>
+{#if $isMobile}
+	<!-- Mobile layout -->
+	<div class="mobile-bar">
+		<div class="mobile-player" style="opacity: {$gameState.turnNumber % 2 === 0 ? 1 : 0.5}">
+			<span class="compact-name" style="color: orange">P1</span>
+			<div class="mobile-pieces">
+				{#each Array($gameState.p1.kittens) as _}
+					<span class="piece-icon" style="color: orange">{@html kittenSvg}</span>
+				{/each}
+				{#each Array($gameState.p1.cats) as _}
+					<span class="piece-icon piece-icon-cat" style="color: orange">{@html catSvg}</span>
+				{/each}
+			</div>
+		</div>
+		<span class="mobile-turn">Turn {$gameState.turnNumber}</span>
+		<div class="mobile-player" style="opacity: {$gameState.turnNumber % 2 === 1 ? 1 : 0.5}">
+			<span class="compact-name" style="color: lightblue">P2</span>
+			<div class="mobile-pieces">
+				{#each Array($gameState.p2.kittens) as _}
+					<span class="piece-icon" style="color: lightblue">{@html kittenSvg}</span>
+				{/each}
+				{#each Array($gameState.p2.cats) as _}
+					<span class="piece-icon piece-icon-cat" style="color: lightblue">{@html catSvg}</span>
+				{/each}
+			</div>
+		</div>
+	</div>
+{:else}
+	<!-- Desktop layout -->
+	<div class="game-info">
+		<h1 class="title">boop.</h1>
+		<p class="turn-label" style="color: {$gameState.turnNumber % 2 == 0 ? 'orange' : 'lightblue'}">
+			{#if $gameState.turnNumber % 2 == 0}
+				Player 1's Turn
+			{:else}
+				Player 2's Turn
+			{/if}
+		</p>
+		<p class="turn-number">Turn {$gameState.turnNumber}</p>
+	</div>
+
+	<div class="player-box player-1">
+		{@render playerBox("Player 1", $gameState.p1, "orange")}
+	</div>
+
+	<div class="player-box player-2">
+		{@render playerBox("Player 2", $gameState.p2, "lightblue")}
+	</div>
+{/if}
 
 {#if $gameState.state === "MAX_WAITING"}
 	<div class="board-message">
@@ -33,14 +78,6 @@
 		<p class="state-alert"><strong>Multiple rows!</strong> Click the middle piece of a row to select it. Kittens graduate into cats!</p>
 	</div>
 {/if}
-
-<div class="player-box player-1">
-	{@render playerBox("Player 1", $gameState.p1, "orange")}
-</div>
-
-<div class="player-box player-2">
-	{@render playerBox("Player 2", $gameState.p2, "lightblue")}
-</div>
 
 <style>
 	.game-info {
@@ -160,5 +197,66 @@
 		bottom: 0;
 		left: 0;
 		border-left: 4px solid #f6ddd4;
+	}
+
+	/* Mobile bar */
+	.mobile-bar {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		z-index: 10;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 0.6rem 1.2rem;
+		background: rgba(250, 246, 240, 0.92);
+		border-bottom: 2px solid rgba(180, 160, 140, 0.2);
+		box-shadow: 0 2px 8px rgba(100, 80, 60, 0.06);
+	}
+
+	.mobile-player {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.15rem;
+		transition: opacity 0.2s ease;
+	}
+
+	.mobile-player:last-child {
+		align-items: flex-end;
+	}
+
+	.compact-name {
+		font-family: "Cherry Bomb One", serif;
+		font-size: 1.1rem;
+		font-weight: 400;
+	}
+
+	.mobile-pieces {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.05rem;
+		max-width: 120px;
+	}
+
+	.piece-icon {
+		width: 12px;
+		height: 12px;
+		display: inline-flex;
+	}
+
+	.piece-icon-cat {
+		width: 14px;
+		height: 14px;
+	}
+
+	.mobile-turn {
+		font-family: "Nunito", sans-serif;
+		font-size: 0.75rem;
+		font-weight: 600;
+		color: #9a8a7a;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
 	}
 </style>

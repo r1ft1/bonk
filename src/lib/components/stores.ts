@@ -13,6 +13,7 @@ export type GameState = {
 	winner: number;
 	placed: NewMove;
 	boopMovement: BoopMovement[];
+	booped: Booped[];
 };
 
 type Position = {
@@ -29,6 +30,13 @@ type BoopMovement = {
 	position: { x: number; y: number };
 	finalPosition: { x: number; y: number };
 	piece: number;
+};
+
+type Booped = {
+	direction: { x: number; y: number };
+	position: { x: number; y: number };
+	tile: number;
+	boopedBy: number;
 };
 
 export type ServerMessage = {
@@ -137,3 +145,5 @@ export type SlidingPieceData = {
 	tile: number;
 };
 export let slidingPieces = writable<SlidingPieceData[]>([]);
+
+export let isMobile = writable(false);

@@ -7,12 +7,13 @@
 	const { camera, renderMode } = useThrelte();
 	renderMode.set("always");
 
+	let innerWidth = $state(window.innerWidth);
 	let innerHeight = $state(window.innerHeight);
 	let cameraRef: any = $state(null);
 
 	$effect(() => {
 		if (!cameraRef) return;
-		if (innerHeight < 900) {
+		if (innerWidth < 768) {
 			cameraRef.position.set(0, 14, 6);
 			cameraRef.lookAt(0, -1, 0);
 		} else {
@@ -22,7 +23,7 @@
 	});
 </script>
 
-<svelte:window bind:innerHeight={innerHeight} />
+<svelte:window bind:innerWidth={innerWidth} bind:innerHeight={innerHeight} />
 
 <T.PerspectiveCamera
 	makeDefault
