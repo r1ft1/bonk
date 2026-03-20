@@ -4,9 +4,9 @@
   import { useGltf, Outlines, Edges } from "@threlte/extras";
 
   let {
-    tile,
-    startPos,
-    endPos,
+    tile: _tile,
+    startPos: _startPos,
+    endPos: _endPos,
     delay = 0.3,
     onDone,
   }: {
@@ -16,6 +16,11 @@
     delay?: number;
     onDone: () => void;
   } = $props();
+
+  // Snapshot props — these are initial values for a one-shot animation
+  const tile = _tile;
+  const startPos = [..._startPos] as [number, number, number];
+  const endPos = [..._endPos] as [number, number, number];
 
   const ref = new Group();
   ref.position.set(startPos[0], startPos[1], startPos[2]);

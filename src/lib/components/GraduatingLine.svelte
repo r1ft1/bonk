@@ -4,14 +4,18 @@
   import { useGltf, Outlines, Edges } from "@threlte/extras";
 
   let {
-    positions,
-    tile,
+    positions: _positions,
+    tile: _tile,
     onDone,
   }: {
     positions: [number, number, number][];
     tile: number;
     onDone: () => void;
   } = $props();
+
+  // Snapshot props — these are initial values for a one-shot animation
+  const positions = _positions.map(p => [...p] as [number, number, number]);
+  const tile = _tile;
 
   const color = tile === 1 ? "orange" : "lightblue";
   const isP1 = tile === 1;
