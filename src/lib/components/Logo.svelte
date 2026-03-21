@@ -2,8 +2,7 @@
 	import { Text3DGeometry, Suspense, Float } from "@threlte/extras";
 	import { T } from "@threlte/core";
 
-	export let text
-	export let position
+	let { text, position }: { text: string; position: any } = $props();
 </script>
 
 <Float floatIntensity={2} speed={[1.5,1.5,1.5]} rotationSpeed={[1.5,1.5,1.5]} rotationIntensity={1.5}>

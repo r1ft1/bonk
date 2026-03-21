@@ -13,6 +13,7 @@ export type GameState = {
 	winner: number;
 	placed: NewMove;
 	boopMovement: BoopMovement[];
+	booped: Booped[];
 };
 
 type Position = {
@@ -31,14 +32,22 @@ type BoopMovement = {
 	piece: number;
 };
 
+type Booped = {
+	direction: { x: number; y: number };
+	position: { x: number; y: number };
+	tile: number;
+	boopedBy: number;
+};
+
 export type ServerMessage = {
 	type: string;
 	gameID: string;
+	playerID: string;
 	state: string;
 	payload: GameState | any;
 };
 
-type Player = {
+export type Player = {
 	kittens: number;
 	cats: number;
 	placed: number;
@@ -47,7 +56,7 @@ type Player = {
 export let gameState: Writable<GameState> = writable(newGameState());
 // const gs: GameState = {};
 //
-function newGameState() {
+export function newGameState() {
 	const gs: GameState = {
 		board: [
 			[0, 0, 0, 0, 0, 0],
@@ -105,7 +114,36 @@ function newGameState() {
 export let webSocket: Writable<WebSocket> = writable();
 export let p1WebSocket: Writable<WebSocket> = writable();
 export let p2WebSocket: Writable<WebSocket> = writable();
-export let message = writable({ type: "", gameID: "", state: "", payload: {} } as ServerMessage);
+export let message = writable({ type: "", gameID: "", playerID: "", state: "", payload: {} } as ServerMessage);
+export let waitingForOpponent = writable(false);
+export let onlineGameID = writable("");
 export let pieceChoice = writable(0);
 export let inGame = writable(false);
 export let waitingGameIDs = writable("");
+export let lastClickPos = writable({ x: 0, y: 0 });
+export let noPiecesMsg = writable("");
+
+export type GraduatingLineData = {
+	positions: [number, number, number][]; // 3 world-space [x, y, z]
+	tile: number; // 1 (P1 kitten) or 8 (P2 kitten)
+};
+export let graduatingLines = writable<GraduatingLineData[]>([]);
+
+export type BoopedOffData = {
+	id: number;
+	startPos: [number, number, number];
+	tile: number; // 1, 2, 8, or 9
+	direction: [number, number]; // boop direction in board coords (dx, dy)
+	delay: number; // seconds to wait before animating
+};
+export let boopedOffPieces = writable<BoopedOffData[]>([]);
+
+export type SlidingPieceData = {
+	id: number;
+	startPos: [number, number, number];
+	endPos: [number, number, number];
+	tile: number;
+};
+export let slidingPieces = writable<SlidingPieceData[]>([]);
+
+export let isMobile = writable(false);

@@ -14,9 +14,19 @@
 		type ServerMessage,
 		p1WebSocket,
 		p2WebSocket,
-	} from "./stores.svelte";
+		lastClickPos,
+		noPiecesMsg,
+		graduatingLines,
+		boopedOffPieces,
+		slidingPieces,
+		isMobile as isMobileStore,
+	} from "./stores";
 	import { animate } from "motion";
 	import Piece from "./Piece.svelte";
+	import GraduatingLine from "./GraduatingLine.svelte";
+	import FlyingPiece from "./FlyingPiece.svelte";
+	import SlidingPiece from "./SlidingPiece.svelte";
+	import CardboardBox from "./CardboardBox.svelte";
 
 	const map = useTexture("/tile.png", {
 		transform: (texture) => {
@@ -30,15 +40,29 @@
 	let lastMove = { x: 0, z: 0 };
 	let color = "orange";
 
-	$: if ($gameState.turnNumber % 2 === 0) {
-		color = "orange";
-		console.log(color);
-	} else {
-		color = "lightblue";
-		console.log(color);
-	}
+	$effect(() => {
+		if ($gameState.turnNumber % 2 === 0) {
+			color = "orange";
+			console.log(color);
+		} else {
+			color = "lightblue";
+			console.log(color);
+		}
+	});
 
 	const wsSendMove = (move: THREE.Vector3) => {
+		if ($gameState.state === "WAITING") {
+			const isP1 = $gameState.turnNumber % 2 === 0;
+			const player = isP1 ? $gameState.p1 : $gameState.p2;
+			const pieceName = $pieceChoice == 0 ? "kittens" : "cats";
+			const available = $pieceChoice == 0 ? player.kittens : player.cats;
+			if (available <= 0) {
+				$noPiecesMsg = `No ${pieceName} left!`;
+				setTimeout(() => { $noPiecesMsg = ""; }, 1500);
+				return;
+			}
+		}
+
 		if ($webSocket != null) {
 			$webSocket.send(
 				JSON.stringify({
@@ -83,68 +107,43 @@
 
 	//const { camera, scene, renderMode, autoRender } = useThrelte();
 
+	let innerWidth = $state(window.innerWidth);
+	let innerHeight = $state(window.innerHeight);
+	let isMobile = $derived(innerWidth < 768);
+	$effect(() => { $isMobileStore = isMobile; });
+
 	let planeMesh: THREE.Mesh;
 	let highlightMesh: THREE.Mesh;
 
-	$: {
+	$effect(() => {
 		lastMove.x = $gameState.placed.position.x;
 		lastMove.z = $gameState.placed.position.y;
 		console.log("lastmove: ", lastMove, "color: ", color);
-	}
-
-	let triggered = false;
-
-	function isPositionInLines(x: number, y: number) {
-		const position = { x: x, y: y };
-
-		if ($gameState.lines == null) {
-			return false;
-		}
-		//lines = [[{x: 0, y: 0}, {x: 1, y: 1}, {x: 2, y: 2}], [{x: 0, y: 0}, {x: 1, y: 0}, {x: 2, y: 0}]]
-		let count = 0;
-		$gameState.lines.forEach((line) => {
-			//const someOutcome = line.some(
-			//	(linePosition) =>
-			//		linePosition.x === position.x &&
-			//		linePosition.y === position.y,
-			//);
-			//
-			//console.log("someOutcome: ", someOutcome);
-			//if (someOutcome) {
-			//	count++;
-			//	triggered = true;
-			//	return true;
-			//}
-			line.forEach((linePosition) => {
-				if (
-					linePosition.x == position.x &&
-					linePosition.y == position.y
-				) {
-					console.log("found position in line");
-					count++;
-					triggered = true;
-					return true;
-				}
-			});
-		});
-		return false;
-	}
-
-	//mobile touch down will move highlightMesh to the touched position
-	//ray trace the touch down to shoot a ray from the camera at that point, intersect with the ground plane to find the specific tile
-	window.addEventListener("touchstart", (e) => {
-		const touch = e.touches[0];
-		const touchX = touch.clientX;
-		const touchY = touch.clientY;
 	});
 
-	//console.log($gameState.lines);
-	$: if (
-		$gameState.state == "MULTIPLE_WAITING" &&
-		$gameState.lines != null
-	) {
-		console.log("Multiple waiting!!!");
+	function lineIndicesFor(x: number, y: number): number[] {
+		if ($gameState.lines == null) return [];
+		const indices: number[] = [];
+		$gameState.lines.forEach((line, idx) => {
+			if (line.some(pos => pos.x === x && pos.y === y)) indices.push(idx);
+		});
+		return indices;
 	}
+
+	function isMiddlePiece(x: number, y: number): boolean {
+		if ($gameState.lines == null) return false;
+		return $gameState.lines.some(line => line[1].x === x && line[1].y === y);
+	}
+
+	//console.log($gameState.lines);
+	$effect(() => {
+		if (
+			$gameState.state == "MULTIPLE_WAITING" &&
+			$gameState.lines != null
+		) {
+			console.log("Multiple waiting!!!", JSON.stringify($gameState.lines));
+		}
+	});
 	//
 	// for (let j = 0; j < $gameState.board.length; j++) {
 	// 	for (let i=0; i<$gameState.board[j].length; i++) {
@@ -156,20 +155,115 @@
 	let time = 0;
 	useTask((delta) => {
 		time += delta;
-		(highlightMesh.material as THREE.Material).opacity =
-			1 + Math.sin(time);
+		if (highlightMesh) {
+			if ($gameState.winner) {
+				(highlightMesh.material as THREE.Material).opacity = 0;
+			} else {
+				(highlightMesh.material as THREE.Material).opacity =
+					1 + Math.sin(time);
+			}
+		}
 	});
 </script>
 
-<!-- Board Base -->
+<svelte:window bind:innerWidth={innerWidth} bind:innerHeight={innerHeight} />
+
+<!-- Bed -->
+<!-- Mattress (the game board surface) -->
 {#await map then value}
-	<T.Mesh position.y={-0.5}>
-		<T.BoxGeometry args={[6, 1, 6]} />
+	<T.Mesh position.y={-0.35}>
+		<T.BoxGeometry args={[6.7, 0.7, 6.7]} oncreate={(geo) => {
+			// Fix UVs on side faces so texture is cropped, not stretched
+			const uv = geo.attributes.uv;
+			const ratio = 0.7 / 6.7; // height / width of side face
+			// BoxGeometry face order: +x, -x, +y, -y, +z, -z (4 verts each)
+			// Faces 0-1 (+x, -x) and 4-5 (+z, -z) are the sides
+			for (let face = 0; face < 6; face++) {
+				if (face === 2 || face === 3) continue; // skip top/bottom
+				const offset = face * 4;
+				for (let v = 0; v < 4; v++) {
+					const idx = offset + v;
+					const vVal = uv.getY(idx);
+					// Remap V from [0,1] to cropped range centered
+					uv.setY(idx, 0.5 + (vVal - 0.5) * ratio);
+				}
+			}
+			uv.needsUpdate = true;
+		}} />
 		<T.MeshBasicMaterial map={value} />
 		<Outlines color="black" thickness={0.02} />
-		<Edges color="black" />
 	</T.Mesh>
 {/await}
+<!-- Mattress edge lines -->
+<T.Mesh position.y={-0.35}>
+	<T.BoxGeometry args={[6.72, 0.72, 6.72]} />
+	<T.MeshStandardMaterial color="#f5efe6" transparent opacity={0.0} />
+	<Edges color="#c4b8a8" />
+</T.Mesh>
+
+<!-- Bed frame (wooden box around mattress) -->
+<!-- Left rail -->
+<T.Mesh position={[-3.35, -0.95, 0]}>
+	<T.BoxGeometry args={[0.3, 0.5, 6.8]} />
+	<T.MeshStandardMaterial color="#8B6F4E" />
+	<Outlines color="black" thickness={0.015} />
+	<Edges color="#5a4232" />
+</T.Mesh>
+<!-- Right rail -->
+<T.Mesh position={[3.35, -0.95, 0]}>
+	<T.BoxGeometry args={[0.3, 0.5, 6.8]} />
+	<T.MeshStandardMaterial color="#8B6F4E" />
+	<Outlines color="black" thickness={0.015} />
+	<Edges color="#5a4232" />
+</T.Mesh>
+<!-- Front rail -->
+<T.Mesh position={[0, -0.95, 3.35]}>
+	<T.BoxGeometry args={[6.4, 0.5, 0.3]} />
+	<T.MeshStandardMaterial color="#8B6F4E" />
+	<Outlines color="black" thickness={0.015} />
+	<Edges color="#5a4232" />
+</T.Mesh>
+<!-- Back rail (shorter, headboard goes above) -->
+<T.Mesh position={[0, -0.95, -3.35]}>
+	<T.BoxGeometry args={[6.4, 0.5, 0.3]} />
+	<T.MeshStandardMaterial color="#8B6F4E" />
+	<Outlines color="black" thickness={0.015} />
+	<Edges color="#5a4232" />
+</T.Mesh>
+
+
+<!-- Legs -->
+<!-- Back left -->
+<T.Mesh position={[-3.25, -1.75, -3.25]}>
+	<T.CylinderGeometry args={[0.18, 0.15, 2.2, 8]} />
+	<T.MeshStandardMaterial color="#6B5337" />
+	<Outlines color="black" thickness={0.015} />
+</T.Mesh>
+<!-- Back right -->
+<T.Mesh position={[3.25, -1.75, -3.25]}>
+	<T.CylinderGeometry args={[0.18, 0.15, 2.2, 8]} />
+	<T.MeshStandardMaterial color="#6B5337" />
+	<Outlines color="black" thickness={0.015} />
+</T.Mesh>
+<!-- Front left -->
+<T.Mesh position={[-3.25, -1.75, 3.25]}>
+	<T.CylinderGeometry args={[0.18, 0.15, 1.5, 8]} />
+	<T.MeshStandardMaterial color="#6B5337" />
+	<Outlines color="black" thickness={0.015} />
+</T.Mesh>
+<!-- Front right -->
+<T.Mesh position={[3.25, -1.75, 3.25]}>
+	<T.CylinderGeometry args={[0.18, 0.15, 1.5, 8]} />
+	<T.MeshStandardMaterial color="#6B5337" />
+	<Outlines color="black" thickness={0.015} />
+</T.Mesh>
+
+
+<!-- Cardboard boxes (hidden on mobile — pieces shown in overlay) -->
+{#if !isMobile}
+	<CardboardBox position={[-4.5, -1.5, -1]} rotation={0.15} scale={1.3} kittens={$gameState.p1.kittens} cats={$gameState.p1.cats} color="orange" />
+	<CardboardBox position={[0, -1.5, 4.8]} rotation={0.7} scale={1.3} kittens={$gameState.p2.kittens} cats={$gameState.p2.cats} color="lightblue" />
+{/if}
 
 <!-- Piece generation from $gameState.board -->
 <!--{#if $gameState.lines != null} 
@@ -191,13 +285,17 @@
 {/if}-->
 {#each $gameState.board as row, y}
 	{#each row as piece, x}
-		{#if piece != 0}
+		{@const isSliding = $slidingPieces.some(s =>
+			Math.abs(s.endPos[0] - (x - 2.5)) < 0.01 && Math.abs(s.endPos[2] - (y - 2.5)) < 0.01
+		)}
+		{#if piece != 0 && !isSliding}
 			<Piece
 				{piece}
 				position={[x - 2.5, 0.52, y - 2.5]}
 				placed={false}
 				booped={false}
-				selectable={false}
+				selectable={$gameState.state === "MULTIPLE_WAITING" ? lineIndicesFor(x, y) : []}
+			isMiddle={$gameState.state === "MULTIPLE_WAITING" && isMiddlePiece(x, y)}
 			/>
 		{/if}
 	{/each}
@@ -233,16 +331,44 @@
 	booped={false}
 /> -->
 
+{#each $graduatingLines as line (line)}
+  <GraduatingLine
+    positions={line.positions}
+    tile={line.tile}
+    onDone={() => { $graduatingLines = $graduatingLines.filter(l => l !== line); }}
+  />
+{/each}
+
+{#each $slidingPieces as piece (piece.id)}
+  <SlidingPiece
+    tile={piece.tile}
+    startPos={piece.startPos}
+    endPos={piece.endPos}
+    onDone={() => { $slidingPieces = $slidingPieces.filter(p => p !== piece); }}
+  />
+{/each}
+
+{#each $boopedOffPieces as piece (piece.id)}
+  <FlyingPiece
+    tile={piece.tile}
+    startPos={piece.startPos}
+    direction={piece.direction}
+    delay={piece.delay}
+    onDone={() => { $boopedOffPieces = $boopedOffPieces.filter(p => p !== piece); }}
+  />
+{/each}
+
 <!-- Invisible Ground Plane -->
 <T.Mesh
 	rotation.x={-Math.PI / 2}
 	position.y={0}
 	visible={false}
 	name="ground"
-	on:create={({ ref }) => {
+	oncreate={(ref) => {
 		planeMesh = ref;
 	}}
-	on:pointermove={(e) => {
+	onpointermove={(e: any) => {
+		if (isMobile) return;
 		if (e.intersections.length > 0) {
 			const { x, z } = e.intersections[0].point;
 			highlightMesh.position.set(
@@ -251,53 +377,51 @@
 				Math.floor(z) + 0.5,
 			);
 		}
-
-		// const objectExists = objects.find((obj) => {
-		// 	return (
-		// 		obj.position.x === highlightMesh.position.x &&
-		// 		obj.position.z === highlightMesh.position.z
-		// 	);
-		// });
-
-		// if (!objectExists) {
-		// 	// @ts-ignore
-		// 	highlightMesh.material.color.setHex(0xffffff);
-		// } else {
-		// 	// @ts-ignore
-		// 	highlightMesh.material.color.setHex(0xff0000);
-		// }
 	}}
-	on:pointerdown={(e) => {
+	onpointerdown={(e: any) => {
+		if (e.intersections.length > 0) {
+			const { x, z } = e.intersections[0].point;
+			highlightMesh.position.set(
+				Math.floor(x) + 0.5,
+				0.01,
+				Math.floor(z) + 0.5,
+			);
+		}
+		$lastClickPos = { x: e.nativeEvent.clientX, y: e.nativeEvent.clientY };
 		console.log("pointerdown", highlightMesh.position);
-		// const objectExists = objects.find((obj) => {
-		// 	return (
-		// 		obj.position.x === highlightMesh.position.x &&
-		// 		obj.position.z === highlightMesh.position.z
-		// 	);
-		// });
-		// if (!objectExists) {
 		wsSendMove(highlightMesh.position);
 		// @ts-ignore
 		highlightMesh.material.color.setHex(0xff0000);
-		// }
-		// console.log(scene.children.length);
 	}}
 >
 	<T.PlaneGeometry args={[6, 6]} />
 	<T.MeshBasicMaterial side={THREE.DoubleSide} />
 </T.Mesh>
 
-<!-- Tile Cursor -->
+<!-- Tile Cursor (outline only, hidden on mobile) -->
 <T.Mesh
-	rotation.x={-Math.PI / 2}
-	position.y={0}
-	on:create={({ ref }) => {
+	position.y={0.03}
+	visible={!isMobile}
+	oncreate={(ref) => {
 		highlightMesh = ref;
 	}}
 >
-	<T.PlaneGeometry args={[1, 1]} />
-	<T.MeshBasicMaterial side={THREE.DoubleSide} transparent={true} />
+	<T.BoxGeometry args={[1, 0.01, 1]} />
+	<T.MeshBasicMaterial transparent={true} opacity={0} />
+	<Edges color="#5a4a3a" />
 </T.Mesh>
 
 <!-- Grid -->
-<T.GridHelper args={[6, 6]} position.y={0.01} />
+<!-- Grid lines (thick, visible) -->
+{#each [-3, -2, -1, 0, 1, 2, 3] as x}
+	<T.Mesh position={[x, 0.02, 0]}>
+		<T.BoxGeometry args={[0.04, 0.01, 6]} />
+		<T.MeshBasicMaterial color="#5a4a3a" transparent opacity={0.45} />
+	</T.Mesh>
+{/each}
+{#each [-3, -2, -1, 0, 1, 2, 3] as z}
+	<T.Mesh position={[0, 0.02, z]}>
+		<T.BoxGeometry args={[6, 0.01, 0.04]} />
+		<T.MeshBasicMaterial color="#5a4a3a" transparent opacity={0.45} />
+	</T.Mesh>
+{/each}

@@ -497,12 +497,6 @@ func main() {
 	// addr := flag.String("addr", ":8080", "http service address")
 	// flag.Parse()
 	//
-	if os.Getenv("ENV") == "PROD" {
-		os.Setenv("ORIGIN_URL", "https://boop.oatmocha.com")
-	} else {
-		os.Setenv("ORIGIN_URL", "http://localhost:5173")
-	}
-
 	server := NewServer()
 	// Using local mux instead of default as defaultservemux is a global var which can be accessed by any 3rd party package and
 	// have routes registered to it

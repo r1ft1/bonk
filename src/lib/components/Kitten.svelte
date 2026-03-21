@@ -4,47 +4,101 @@ Command: npx @threlte/gltf@2.0.3 kitten.glb
 -->
 
 <script lang="ts">
-	import { Group } from "three";
-	import { T, forwardEventHandlers } from "@threlte/core";
+	import type { Snippet } from "svelte";
+	import { Color, Group, Vector3 } from "three";
+	import { T, useTask } from "@threlte/core";
 	import { useGltf, Outlines } from "@threlte/extras";
 	import { animate } from "motion";
-	import { gameState } from "./stores.svelte";
+	import { gameState, isMobile } from "./stores";
 
-	export const ref = new Group();
+	const LINE_COLORS = ["#00ffff", "#ff00ff", "#ffff00", "#00ff00"];
+	const SWAP_PERIOD = 1.5;
+
+	// Spawn positions for arc animation (world coordinates)
+	// P1 (top-right of screen) and P2 (bottom-left) given camera at [10,10,10]
+	const P1_SPAWN = new Vector3(7, 5, -7);
+	const P2_SPAWN = new Vector3(3, 5, 9);
+
+	let time = $state(0);
+	let arcStart = { x: 0, y: 0, z: 0 };
+	let arcProgress = 0;
+	let arcAnimating = false;
+	let settleAnimating = false;
+	let settleProgress = 0;
+	const ARC_DURATION = 0.6;
+	const ARC_HEIGHT = 5;
+	const SETTLE_DURATION = 0.15;
+
+	function easeOutCubic(t: number): number {
+		return 1 - Math.pow(1 - t, 3);
+	}
+
+	const ref = new Group();
 
 	const gltf = useGltf("/kitten.glb");
 
-	const component = forwardEventHandlers();
+	let {
+		color,
+		placed,
+		selectable,
+		isMiddle = false,
+		position,
+		booped = false,
+		finalPosition = [0, 0, 0],
+		fallback,
+		children,
+	}: {
+		color: any;
+		placed: boolean;
+		selectable: number[];
+		isMiddle?: boolean;
+		position: any;
+		booped?: boolean;
+		finalPosition?: any[];
+		fallback?: Snippet;
+		children?: Snippet<[{ ref: Group }]>;
+	} = $props();
 
-	export let color;
-	export let placed: boolean;
-	export let selectable: boolean;
-	export let position;
-	export let booped: boolean = false;
-	export let finalPosition = [0, 0, 0];
 	let kittenRef: any;
 
-	console.log($gameState.placed.position, position[0], position.z);
+	useTask((delta) => {
+		if (selectable.length > 0) time += delta;
 
-	$: if (
-		$gameState.placed.position.x == position[0] + 2.5 &&
-		$gameState.placed.position.y == position[2] + 2.5
-	) {
-		console.log("animate kitten placement: ");
-		ref.position.y = 1.52;
-		animate(
-			ref.position,
-			{ y: 0.02 },
-			{
-				duration: 1,
-				repeat: 0,
-				ease: "backInOut",
-				type: "spring",
-			},
-		);
-	}
+		if (arcAnimating) {
+			arcProgress += delta / ARC_DURATION;
+			if (arcProgress >= 1) {
+				arcAnimating = false;
+				ref.position.set(0, 0, 0);
+			} else {
+				const t = easeOutCubic(arcProgress);
+				ref.position.x = arcStart.x * (1 - t);
+				ref.position.z = arcStart.z * (1 - t);
+				ref.position.y = arcStart.y * (1 - t) + ARC_HEIGHT * 4 * t * (1 - t);
+			}
+		}
+	});
 
-	$: {
+	$effect(() => {
+		if (
+			$gameState.placed.position.x == position[0] + 2.5 &&
+			$gameState.placed.position.y == position[2] + 2.5
+		) {
+			const targetWorld = new Vector3(position[0], position[1], position[2]);
+			// turnNumber already incremented after placement; odd = P1 just played
+			const spawn = $gameState.turnNumber % 2 === 1 ? P1_SPAWN : P2_SPAWN;
+
+			arcStart = {
+				x: spawn.x - targetWorld.x,
+				y: spawn.y - targetWorld.y,
+				z: spawn.z - targetWorld.z,
+			};
+			ref.position.set(arcStart.x, arcStart.y, arcStart.z);
+			arcProgress = 0;
+			arcAnimating = true;
+		}
+	});
+
+	$effect(() => {
 		if (booped) {
 			ref.position.y = position[1];
 			ref.position.x = position[0] + 2.5;
@@ -64,36 +118,45 @@ Command: npx @threlte/gltf@2.0.3 kitten.glb
 				},
 			);
 		}
-	}
-	// function rad(degrees: number) {
-	// 	return degrees * (Math.PI / 180);
-	// }
+	});
+
 	console.log(ref);
 </script>
 
-<T is={ref} dispose={false} {...$$restProps} bind:this={$component}>
+<T is={ref} dispose={false}>
 	{#await gltf}
-		<slot name="fallback" />
+		{@render fallback?.()}
 	{:then gltf}
 		<T.Mesh
 			geometry={gltf.nodes.Kitten.geometry}
 			material={gltf.nodes.Kitten.material}
 			{position}
 			scale={[0.5, 0.5, 0.5]}
-			on:create={({ ref }) => {
+			rotation.y={$isMobile ? -Math.PI / 2 : 0}
+			oncreate={(ref) => {
 				kittenRef = ref;
 			}}
 		>
 			<T.MeshStandardMaterial {color} />
-			{#if selectable}
-				<Outlines color="white" />
-			{:else}
-				<Outlines color="black" />
-			{/if}
+			<Outlines
+				color={selectable.length > 0
+					? (() => {
+						const t = (time / SWAP_PERIOD) % selectable.length;
+						const fromIdx = selectable[Math.floor(t) % selectable.length] % LINE_COLORS.length;
+						const toIdx = selectable[(Math.floor(t) + 1) % selectable.length] % LINE_COLORS.length;
+						const frac = t - Math.floor(t);
+						const c = new Color(LINE_COLORS[fromIdx]).lerp(new Color(LINE_COLORS[toIdx]), frac);
+						return `#${c.getHexString()}`;
+					})()
+					: "black"}
+				thickness={selectable.length > 0
+					? (isMiddle ? 0.12 + 0.04 * Math.sin(time * 3) : 0.06)
+					: 0.05}
+			/>
 		</T.Mesh>
-	{:catch error}
-		<slot name="error" {error} />
+	{:catch _error}
+		<!-- no error fallback -->
 	{/await}
 
-	<slot {ref} />
+	{@render children?.({ ref })}
 </T>
