@@ -1,22 +1,31 @@
 services:
   frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/r1ft1/bonk/frontend:${TAG:-main}
     expose:
       - "3000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.boop-frontend.rule=Host(`boop.oatmocha.com`) && !PathPrefix(`/ws`) && !PathPrefix(`/getWaitingGame`)"
+      - "traefik.http.routers.boop-frontend.entrypoints=https"
+      - "traefik.http.routers.boop-frontend.tls=true"
+      - "traefik.http.services.boop-frontend.loadbalancer.server.port=3000"
     depends_on:
       - backend
 
   backend:
-    build:
-      context: ./logic
-      dockerfile: Dockerfile
+    image: ghcr.io/r1ft1/bonk/backend:${TAG:-main}
     expose:
       - "8080"
     environment:
       - ENV=PROD
       - DB_PATH=/data/games.db
+      - ORIGIN_URL=https://boop.oatmocha.com
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.boop-backend.rule=Host(`boop.oatmocha.com`) && (PathPrefix(`/ws`) || PathPrefix(`/getWaitingGame`))"
+      - "traefik.http.routers.boop-backend.entrypoints=https"
+      - "traefik.http.routers.boop-backend.tls=true"
+      - "traefik.http.services.boop-backend.loadbalancer.server.port=8080"
     volumes:
       - game-data:/data
 

@@ -2,6 +2,7 @@
   import { Group, MathUtils } from "three";
   import { T, useTask } from "@threlte/core";
   import { useGltf, Outlines, Edges } from "@threlte/extras";
+  import { isMobile } from "./stores";
 
   let {
     tile: _tile,
@@ -118,13 +119,13 @@
 {#await gltf then gltf}
   <T is={ref} dispose={false}>
     {#if isCat}
-      <T.Mesh geometry={gltf.nodes.Cube.geometry} scale={[0.5, 0.5, 0.5]}>
+      <T.Mesh geometry={gltf.nodes.Cube.geometry} scale={[0.5, 0.5, 0.5]} rotation.y={$isMobile ? -Math.PI / 2 : 0}>
         <T.MeshStandardMaterial {color} />
         <Outlines color="black" />
         <Edges color="black" />
       </T.Mesh>
     {:else}
-      <T.Mesh geometry={gltf.nodes.Kitten.geometry} scale={[0.5, 0.5, 0.5]}>
+      <T.Mesh geometry={gltf.nodes.Kitten.geometry} scale={[0.5, 0.5, 0.5]} rotation.y={$isMobile ? -Math.PI / 2 : 0}>
         <T.MeshStandardMaterial {color} />
         <Outlines color="black" />
       </T.Mesh>

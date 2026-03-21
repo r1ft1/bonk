@@ -2,6 +2,7 @@
   import { Group, MathUtils } from "three";
   import { T, useTask } from "@threlte/core";
   import { useGltf, Outlines, Edges } from "@threlte/extras";
+  import { isMobile } from "./stores";
 
   let {
     positions: _positions,
@@ -115,25 +116,25 @@
 
 {#await Promise.all([kittenGltf, catGltf]) then [kg, cg]}
   <T is={ref0} dispose={false}>
-    <T.Mesh geometry={kg.nodes.Kitten.geometry} scale={[0.5, 0.5, 0.5]}>
+    <T.Mesh geometry={kg.nodes.Kitten.geometry} scale={[0.5, 0.5, 0.5]} rotation.y={$isMobile ? -Math.PI / 2 : 0}>
       <T.MeshStandardMaterial {color} />
       <Outlines color="black" />
     </T.Mesh>
   </T>
   <T is={ref1} dispose={false}>
-    <T.Mesh geometry={kg.nodes.Kitten.geometry} scale={[0.5, 0.5, 0.5]}>
+    <T.Mesh geometry={kg.nodes.Kitten.geometry} scale={[0.5, 0.5, 0.5]} rotation.y={$isMobile ? -Math.PI / 2 : 0}>
       <T.MeshStandardMaterial {color} />
       <Outlines color="black" />
     </T.Mesh>
   </T>
   <T is={ref2} dispose={false}>
-    <T.Mesh geometry={kg.nodes.Kitten.geometry} scale={[0.5, 0.5, 0.5]}>
+    <T.Mesh geometry={kg.nodes.Kitten.geometry} scale={[0.5, 0.5, 0.5]} rotation.y={$isMobile ? -Math.PI / 2 : 0}>
       <T.MeshStandardMaterial {color} />
       <Outlines color="black" />
     </T.Mesh>
   </T>
   <T is={catRef} dispose={false}>
-    <T.Mesh geometry={cg.nodes.Cube.geometry} scale={[0.5, 0.5, 0.5]}>
+    <T.Mesh geometry={cg.nodes.Cube.geometry} scale={[0.5, 0.5, 0.5]} rotation.y={$isMobile ? -Math.PI / 2 : 0}>
       <T.MeshStandardMaterial {color} />
       <Outlines color="black" />
       <Edges color="black" />
