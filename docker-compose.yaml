@@ -6,6 +6,12 @@ services:
       - default
     expose:
       - "3000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.boop-frontend.rule=Host(`boop.oatmocha.com`)"
+      - "traefik.http.routers.boop-frontend.entrypoints=https"
+      - "traefik.http.routers.boop-frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.boop-frontend.loadbalancer.server.port=3000"
     depends_on:
       - backend
 
@@ -20,6 +26,13 @@ services:
       - ENV=PROD
       - DB_PATH=/data/games.db
       - ORIGIN_URL=https://boop.oatmocha.com
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.boop-backend.rule=Host(`boop.oatmocha.com`) && (PathPrefix(`/ws`) || PathPrefix(`/getWaitingGame`))"
+      - "traefik.http.routers.boop-backend.priority=100"
+      - "traefik.http.routers.boop-backend.entrypoints=https"
+      - "traefik.http.routers.boop-backend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.boop-backend.loadbalancer.server.port=8080"
     volumes:
       - game-data:/data
 
