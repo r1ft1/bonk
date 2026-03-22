@@ -11,6 +11,7 @@
         graduatingLines,
         boopedOffPieces,
         slidingPieces,
+        pieceChoice,
     } from "./stores";
     import type { ServerMessage } from "./stores";
     import { PUBLIC_SERVER_WS_URL, PUBLIC_SERVER_HTTP_URL } from "$env/static/public";
@@ -65,6 +66,7 @@
                 );
                 $p1WebSocket.addEventListener("message", messageEvent);
                 $p2WebSocket.addEventListener("message", messageEvent);
+                $pieceChoice = 0;
                 $inGame = true;
             }
         };
@@ -112,14 +114,18 @@
             const newPayload = msg.payload;
             const newTurn = newPayload.turnNumber ?? -1;
 
-            // Skip duplicate processing (both p1/p2 sockets receive all messages)
-            if (newTurn === lastProcessedTurn) {
+            // Skip animation processing if:
+            // - Same turn (duplicate from p1/p2 sockets)
+            // - Transitioning from a waiting state (MAX_WAITING/MULTIPLE_WAITING → WAITING)
+            //   These are selection responses, not new placements
+            const oldState = $gameState;
+            const isWaitingTransition = oldState.state === "MAX_WAITING" || oldState.state === "MULTIPLE_WAITING";
+            if (newTurn === lastProcessedTurn || isWaitingTransition) {
+                lastProcessedTurn = newTurn;
                 $gameState = newPayload;
                 // Fall through to handle joined/gameState UI logic below
             } else {
             lastProcessedTurn = newTurn;
-
-            const oldState = $gameState;
 
             // Graduation: use lines from server directly
             const serverLines = newPayload.lines as { x: number; y: number }[][] | null;
@@ -162,15 +168,10 @@
                 });
             }
 
-            // Animation sequencing:
-            // 1. Update state (placed piece appears)
-            // 2. Sliding pieces animate after 0.3s delay (0.25s duration)
-            // 3. Booped-off pieces fall after slides finish
-            const flyDelay = newSliding.length > 0 ? 0.6 : 0.3;
-            for (const b of newBoopedOff) {
-                b.delay = flyDelay;
-            }
-
+            // Animation sequencing is reactive:
+            // 1. Placement arc runs → sets placementLanded when done
+            // 2. SlidingPiece waits for placementLanded
+            // 3. FlyingPiece waits for placementLanded AND slidingPieces to be empty
             if (newSliding.length > 0) {
                 $slidingPieces = [...$slidingPieces, ...newSliding];
             }
@@ -197,13 +198,15 @@
                 $onlineGameID = msg.gameID;
             } else {
                 // Joiner: go straight into the game
+                $pieceChoice = 0;
                 $inGame = true;
             }
             console.log(msg.payload);
         } else if (msg.type == "gameState" && $waitingForOpponent) {
             // Opponent has joined — enter the game
             $waitingForOpponent = false;
-            $inGame = true;
+            $pieceChoice = 0;
+                $inGame = true;
         } else {
             console.log(msg.payload);
         }

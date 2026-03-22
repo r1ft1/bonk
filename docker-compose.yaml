@@ -1,6 +1,7 @@
 services:
   frontend:
     image: ghcr.io/r1ft1/bonk/frontend:${TAG:-main}
+    restart: unless-stopped
     networks:
       - coolify
       - default
@@ -17,6 +18,7 @@ services:
 
   backend:
     image: ghcr.io/r1ft1/bonk/backend:${TAG:-main}
+    restart: unless-stopped
     networks:
       - coolify
       - default

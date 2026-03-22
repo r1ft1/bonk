@@ -134,7 +134,6 @@ export type BoopedOffData = {
 	startPos: [number, number, number];
 	tile: number; // 1, 2, 8, or 9
 	direction: [number, number]; // boop direction in board coords (dx, dy)
-	delay: number; // seconds to wait before animating
 };
 export let boopedOffPieces = writable<BoopedOffData[]>([]);
 
@@ -147,3 +146,32 @@ export type SlidingPieceData = {
 export let slidingPieces = writable<SlidingPieceData[]>([]);
 
 export let isMobile = writable(false);
+
+// Signals when the placement arc animation has landed
+export let placementLanded = writable(true);
+
+// Animation tuning parameters — controlled via debug overlay
+export const animConfig = writable({
+	// Placement arc
+	arcDuration: 0.6,
+	arcHeight: 5,
+	arcLandThreshold: 0.85, // trigger boops at this % of arc
+
+	// Sliding piece (on-board boop)
+	slideDuration: 0.25,
+	slideArcHeight: 0.2,
+
+	// Flying piece (off-board boop)
+	bumpDuration: 0.15,
+	bumpDistance: 1.5,
+	bumpArcHeight: 0.3,
+	gravity: 18,
+	bumpVelocityY: 3,
+	bumpVelocityXZ: 4,
+	groundY: -2.7,
+	bounceEnergyLoss: 0.4,
+	bounceFriction: 0.5,
+	bounceMinVelocity: 1,
+	tumbleSpeed: 6,
+	shrinkDuration: 0.4,
+});

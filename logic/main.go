@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/websocket"
+	"io"
 	"log"
 	"math/rand"
 	"net/http"
@@ -11,6 +11,8 @@ import (
 	"slices"
 	"sync"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 func LoadTestGameState() *GameState {
@@ -127,6 +129,11 @@ func (server *Server) joinGame(conn *websocket.Conn, requestedGameID string) *Ga
 // Any WriteJSON call will only be called from here
 func (game *Game) writePump(conn *websocket.Conn, playerID string, s *Server, wg *sync.WaitGroup) {
 	defer wg.Done()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("PANIC in writePump for game %s player %s: %v", game.ID, playerID, r)
+		}
+	}()
 
 	ticker := time.NewTicker(pingPeriod)
 	for {
@@ -243,6 +250,11 @@ const (
 // Any ReadJSON call will only be called from here
 func (game *Game) readPump(conn *websocket.Conn, playerID string, s *Server, wg *sync.WaitGroup) {
 	defer wg.Done()
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("PANIC in readPump for game %s player %s: %v", game.ID, playerID, r)
+		}
+	}()
 
 	//The readpump will need to receive a ping from the client every 30 seconds to keep the connection alive
 	conn.SetReadDeadline(time.Now().Add(pongWait))
@@ -416,6 +428,10 @@ func (game *Game) handleMultipleGraduations(selection *NewMove) error {
 	game.GameState.Board.graduatePieces(line, game.GameState)
 	log.Println("handleMultipleGrad is changing the State to WAITING")
 	game.GameState.State = "WAITING"
+	game.GameState.Lines = nil
+	game.GameState.BoopMovement = nil
+	game.GameState.Booped = nil
+	game.GameState.Placed = Move{}
 	return nil
 }
 
@@ -430,6 +446,10 @@ func (game *Game) handleMaxedOutGraduation(selection *NewMove) error {
 	game.GameState.Board.graduatePiece(selection.Position, game.GameState)
 	log.Println("handleMaxedGrad is changing the State to WAITING")
 	game.GameState.State = "WAITING"
+	game.GameState.Lines = nil
+	game.GameState.BoopMovement = nil
+	game.GameState.Booped = nil
+	game.GameState.Placed = Move{}
 
 	return nil
 }
@@ -493,6 +513,18 @@ func enableCors(w *http.ResponseWriter) {
 }
 
 func main() {
+	// Log to both stderr and a persistent file so logs survive container restarts
+	dbPath := os.Getenv("DB_PATH")
+	logDir := "/data"
+	if dbPath != "" {
+		logDir = dbPath[:len(dbPath)-len("/games.db")]
+	}
+	logFile, err := os.OpenFile(logDir+"/backend.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err == nil {
+		log.SetOutput(io.MultiWriter(os.Stderr, logFile))
+		defer logFile.Close()
+	}
+
 	defer log.Println("Server shutting down")
 	// addr := flag.String("addr", ":8080", "http service address")
 	// flag.Parse()

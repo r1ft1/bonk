@@ -37,18 +37,7 @@
 		},
 	});
 
-	let lastMove = { x: 0, z: 0 };
-	let color = "orange";
-
-	$effect(() => {
-		if ($gameState.turnNumber % 2 === 0) {
-			color = "orange";
-			console.log(color);
-		} else {
-			color = "lightblue";
-			console.log(color);
-		}
-	});
+	let color = $derived($gameState.turnNumber % 2 === 0 ? "orange" : "lightblue");
 
 	const wsSendMove = (move: THREE.Vector3) => {
 		if ($gameState.state === "WAITING") {
@@ -110,16 +99,12 @@
 	let innerWidth = $state(window.innerWidth);
 	let innerHeight = $state(window.innerHeight);
 	let isMobile = $derived(innerWidth < 768);
-	$effect(() => { $isMobileStore = isMobile; });
+	$effect(() => { $isMobileStore = isMobile; }); // sync to store for other components
 
 	let planeMesh: THREE.Mesh;
 	let highlightMesh: THREE.Mesh;
 
-	$effect(() => {
-		lastMove.x = $gameState.placed.position.x;
-		lastMove.z = $gameState.placed.position.y;
-		console.log("lastmove: ", lastMove, "color: ", color);
-	});
+	let lastMove = $derived({ x: $gameState.placed.position.x, z: $gameState.placed.position.y });
 
 	function lineIndicesFor(x: number, y: number): number[] {
 		if ($gameState.lines == null) return [];
@@ -135,15 +120,6 @@
 		return $gameState.lines.some(line => line[1].x === x && line[1].y === y);
 	}
 
-	//console.log($gameState.lines);
-	$effect(() => {
-		if (
-			$gameState.state == "MULTIPLE_WAITING" &&
-			$gameState.lines != null
-		) {
-			console.log("Multiple waiting!!!", JSON.stringify($gameState.lines));
-		}
-	});
 	//
 	// for (let j = 0; j < $gameState.board.length; j++) {
 	// 	for (let i=0; i<$gameState.board[j].length; i++) {

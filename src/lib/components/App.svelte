@@ -5,6 +5,7 @@
 	import GameBrowser from "./GameBrowser.svelte";
 	import { inGame, gameState, lastClickPos, pieceChoice, noPiecesMsg, webSocket, p1WebSocket, p2WebSocket, newGameState, graduatingLines } from "./stores";
 	import GameInfo from "./GameInfo.svelte";
+	import AnimDebug from "./AnimDebug.svelte";
 
 	let boopTexts: { id: number; x: number; y: number; color: string }[] = $state([]);
 	let boopId = 0;
@@ -62,6 +63,7 @@
 	<GameBrowser />
 {:else}
 	<GameInfo />
+	<AnimDebug />
 {/if}
 <Canvas>
 	<Renderer />

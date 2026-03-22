@@ -9,7 +9,7 @@ Command: npx @threlte/gltf@2.0.3 kitten.glb
 	import { T, useTask } from "@threlte/core";
 	import { useGltf, Outlines } from "@threlte/extras";
 	import { animate } from "motion";
-	import { gameState, isMobile } from "./stores";
+	import { gameState, isMobile, placementLanded, animConfig } from "./stores";
 
 	const LINE_COLORS = ["#00ffff", "#ff00ff", "#ffff00", "#00ff00"];
 	const SWAP_PERIOD = 1.5;
@@ -23,11 +23,6 @@ Command: npx @threlte/gltf@2.0.3 kitten.glb
 	let arcStart = { x: 0, y: 0, z: 0 };
 	let arcProgress = 0;
 	let arcAnimating = false;
-	let settleAnimating = false;
-	let settleProgress = 0;
-	const ARC_DURATION = 0.6;
-	const ARC_HEIGHT = 5;
-	const SETTLE_DURATION = 0.15;
 
 	function easeOutCubic(t: number): number {
 		return 1 - Math.pow(1 - t, 3);
@@ -60,12 +55,18 @@ Command: npx @threlte/gltf@2.0.3 kitten.glb
 	} = $props();
 
 	let kittenRef: any;
+	let lastArcTurn = -1;
 
 	useTask((delta) => {
 		if (selectable.length > 0) time += delta;
 
 		if (arcAnimating) {
-			arcProgress += delta / ARC_DURATION;
+			const cfg = $animConfig;
+			arcProgress += delta / cfg.arcDuration;
+			// Signal landing slightly early so boops start as piece settles
+			if (!$placementLanded && arcProgress >= cfg.arcLandThreshold) {
+				$placementLanded = true;
+			}
 			if (arcProgress >= 1) {
 				arcAnimating = false;
 				ref.position.set(0, 0, 0);
@@ -73,19 +74,24 @@ Command: npx @threlte/gltf@2.0.3 kitten.glb
 				const t = easeOutCubic(arcProgress);
 				ref.position.x = arcStart.x * (1 - t);
 				ref.position.z = arcStart.z * (1 - t);
-				ref.position.y = arcStart.y * (1 - t) + ARC_HEIGHT * 4 * t * (1 - t);
+				ref.position.y = arcStart.y * (1 - t) + cfg.arcHeight * 4 * t * (1 - t);
 			}
 		}
 	});
 
 	$effect(() => {
+		const turn = $gameState.turnNumber;
+		const placed = $gameState.placed;
 		if (
-			$gameState.placed.position.x == position[0] + 2.5 &&
-			$gameState.placed.position.y == position[2] + 2.5
+			placed.piece !== 0 &&
+			turn !== lastArcTurn &&
+			placed.position.x == position[0] + 2.5 &&
+			placed.position.y == position[2] + 2.5
 		) {
+			lastArcTurn = turn;
 			const targetWorld = new Vector3(position[0], position[1], position[2]);
 			// turnNumber already incremented after placement; odd = P1 just played
-			const spawn = $gameState.turnNumber % 2 === 1 ? P1_SPAWN : P2_SPAWN;
+			const spawn = turn % 2 === 1 ? P1_SPAWN : P2_SPAWN;
 
 			arcStart = {
 				x: spawn.x - targetWorld.x,
@@ -95,6 +101,7 @@ Command: npx @threlte/gltf@2.0.3 kitten.glb
 			ref.position.set(arcStart.x, arcStart.y, arcStart.z);
 			arcProgress = 0;
 			arcAnimating = true;
+			$placementLanded = false;
 		}
 	});
 
