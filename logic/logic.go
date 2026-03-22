@@ -10,7 +10,8 @@ type Position struct {
 }
 
 type Direction struct {
-	X, Y int8
+	X int8 `json:"x"`
+	Y int8 `json:"y"`
 }
 
 type Booped struct {
