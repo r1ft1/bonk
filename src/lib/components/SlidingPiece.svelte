@@ -45,8 +45,6 @@
       waitElapsed += delta;
       if (waitElapsed < cfg.slideDelay) return;
       started = true;
-      // Negative delay: pre-advance elapsed so animation is already partway through
-      if (cfg.slideDelay < 0) elapsed = -cfg.slideDelay;
     }
 
     elapsed += delta;

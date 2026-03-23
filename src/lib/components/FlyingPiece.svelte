@@ -50,7 +50,6 @@
       waitElapsed += delta;
       if (waitElapsed < cfg.flyDelay) return;
       started = true;
-      if (cfg.flyDelay < 0) elapsed = -cfg.flyDelay;
     }
 
     const edgeX = startPos[0] + direction[0] * cfg.bumpDistance;
