@@ -22,7 +22,7 @@
     let lastProcessedSeq = -1;
 
     type ServerBooped = {
-        direction: { x: number; y: number };
+        direction: { x: number; y: number; X?: number; Y?: number };
         position: { x: number; y: number };
         tile: number;
         boopedBy: number;
@@ -153,7 +153,7 @@
                             id: boopOffIdCounter++,
                             startPos: [b.position.x - 2.5, 0.52, b.position.y - 2.5],
                             tile: b.tile,
-                            direction: [b.direction.x, b.direction.y],
+                            direction: [b.direction.x ?? b.direction.X ?? 0, b.direction.y ?? b.direction.Y ?? 0],
                         }];
                     }
                 }
