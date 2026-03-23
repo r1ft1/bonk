@@ -41,8 +41,9 @@ var directionMap = map[string]Direction{
 type Board [6][6]uint8
 
 type GameState struct {
-	TurnNumber uint8  `json:"turnNumber"`
-	PlayerTurn uint8  `json:"playerTurn"`
+	TurnNumber   uint8  `json:"turnNumber"`
+	BroadcastSeq uint32 `json:"broadcastSeq"`
+	PlayerTurn   uint8  `json:"playerTurn"`
 	Board      Board  `json:"board"`
 	P1         Player `json:"p1"`
 	P2         Player `json:"p2"`

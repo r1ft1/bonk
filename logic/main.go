@@ -455,6 +455,7 @@ func (game *Game) handleMaxedOutGraduation(selection *NewMove) error {
 }
 
 func (game *Game) broadcastGameState() {
+	game.GameState.BroadcastSeq++
 	log.Printf("Broadcasting game state, game state is: %+v", game.GameState.State)
 	stateMsg := Message{
 		Type:    "gameState",

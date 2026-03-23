@@ -12,13 +12,14 @@
         boopedOffPieces,
         slidingPieces,
         pieceChoice,
+        arcTrigger,
     } from "./stores";
     import type { ServerMessage } from "./stores";
     import { PUBLIC_SERVER_WS_URL, PUBLIC_SERVER_HTTP_URL } from "$env/static/public";
 
     let boopOffIdCounter = 0;
     let slidingIdCounter = 0;
-    let lastProcessedTurn = -1;
+    let lastProcessedSeq = -1;
 
     type ServerBooped = {
         direction: { x: number; y: number };
@@ -112,77 +113,111 @@
         }
         if (msg.type != "error") {
             const newPayload = msg.payload;
-            const newTurn = newPayload.turnNumber ?? -1;
+            const newSeq = newPayload.broadcastSeq ?? -1;
 
-            // Skip animation processing if:
-            // - Same turn (duplicate from p1/p2 sockets)
-            // - Transitioning from a waiting state (MAX_WAITING/MULTIPLE_WAITING → WAITING)
-            //   These are selection responses, not new placements
-            const oldState = $gameState;
-            const isWaitingTransition = oldState.state === "MAX_WAITING" || oldState.state === "MULTIPLE_WAITING";
-            if (newTurn === lastProcessedTurn || isWaitingTransition) {
-                lastProcessedTurn = newTurn;
+            // Duplicate guard: skip if we already processed this broadcast
+            // (both p1/p2 sockets receive same broadcast in pass-and-play)
+            if (newSeq === lastProcessedSeq) {
                 $gameState = newPayload;
-                // Fall through to handle joined/gameState UI logic below
             } else {
-            lastProcessedTurn = newTurn;
+                lastProcessedSeq = newSeq;
+                const oldState = $gameState;
 
-            // Graduation: use lines from server directly
-            const serverLines = newPayload.lines as { x: number; y: number }[][] | null;
-            if (serverLines && serverLines.length > 0) {
-                // Determine which player graduated from the placed piece
-                const placedPiece = newPayload.placed?.piece ?? 0;
-                const playerTile = (placedPiece === 1 || placedPiece === 2) ? 1 : 8;
-                for (const line of serverLines) {
-                    const worldPositions = line.map(
-                        (p: { x: number; y: number }) => [p.x - 2.5, 0.52, p.y - 2.5] as [number, number, number]
-                    );
-                    $graduatingLines = [
-                        ...$graduatingLines,
-                        { positions: worldPositions, tile: playerTile },
-                    ];
+                // Determine transition type
+                const isPlacement = oldState.state === "WAITING" || oldState.state === "";
+                const isMultipleSelection = oldState.state === "MULTIPLE_WAITING";
+                const isMaxSelection = oldState.state === "MAX_WAITING";
+
+                // --- Placement animations (arc, slides, flying) ---
+                if (isPlacement) {
+                    const placed = newPayload.placed;
+                    if (placed && placed.piece !== 0) {
+                        $arcTrigger = { x: placed.position.x, y: placed.position.y, piece: placed.piece, turn: newPayload.turnNumber };
+                    }
+
+                    // Sliding pieces
+                    const boopMoves = newPayload.boopMovement as { position: { x: number; y: number }; finalPosition: { x: number; y: number }; tile: number }[] ?? [];
+                    for (const bm of boopMoves) {
+                        $slidingPieces = [...$slidingPieces, {
+                            id: slidingIdCounter++,
+                            startPos: [bm.position.x - 2.5, 0.52, bm.position.y - 2.5],
+                            endPos: [bm.finalPosition.x - 2.5, 0.52, bm.finalPosition.y - 2.5],
+                            tile: bm.tile,
+                        }];
+                    }
+
+                    // Flying pieces (booped off board)
+                    const serverBooped = (newPayload.booped as ServerBooped[]) ?? [];
+                    for (const b of serverBooped) {
+                        $boopedOffPieces = [...$boopedOffPieces, {
+                            id: boopOffIdCounter++,
+                            startPos: [b.position.x - 2.5, 0.52, b.position.y - 2.5],
+                            tile: b.tile,
+                            direction: [b.direction.x, b.direction.y],
+                        }];
+                    }
                 }
-            }
 
-            // Sliding pieces: use boopMovement from server
-            const boopMoves = newPayload.boopMovement as { position: { x: number; y: number }; finalPosition: { x: number; y: number }; tile: number }[] ?? [];
-            const newSliding: typeof $slidingPieces = [];
-            for (const bm of boopMoves) {
-                newSliding.push({
-                    id: slidingIdCounter++,
-                    startPos: [bm.position.x - 2.5, 0.52, bm.position.y - 2.5],
-                    endPos: [bm.finalPosition.x - 2.5, 0.52, bm.finalPosition.y - 2.5],
-                    tile: bm.tile,
-                });
-            }
+                // --- Graduation animations ---
+                // Auto-graduation (single line, handled during placement)
+                if (isPlacement) {
+                    const serverLines = newPayload.lines as { x: number; y: number }[][] | null;
+                    if (serverLines && serverLines.length > 0) {
+                        const placedPiece = newPayload.placed?.piece ?? 0;
+                        const playerTile = (placedPiece === 1 || placedPiece === 2) ? 1 : 8;
+                        for (const line of serverLines) {
+                            const worldPositions = line.map(
+                                (p: { x: number; y: number }) => [p.x - 2.5, 0.52, p.y - 2.5] as [number, number, number]
+                            );
+                            $graduatingLines = [...$graduatingLines, { positions: worldPositions, tile: playerTile }];
+                        }
+                    }
+                }
 
-            // Booped-off pieces: use booped from server
-            const serverBooped = (newPayload.booped as ServerBooped[]) ?? [];
-            const newBoopedOff: typeof $boopedOffPieces = [];
-            for (const b of serverBooped) {
-                newBoopedOff.push({
-                    id: boopOffIdCounter++,
-                    startPos: [b.position.x - 2.5, 0.52, b.position.y - 2.5],
-                    tile: b.tile,
-                    direction: [b.direction.x, b.direction.y],
-                });
-            }
+                // MULTIPLE_WAITING → WAITING: graduation of selected line
+                if (isMultipleSelection && newPayload.state === "WAITING") {
+                    // Diff boards to find the 3 removed pieces
+                    const oldBoard = oldState.board;
+                    const newBoard = newPayload.board;
+                    const removed: [number, number, number][] = [];
+                    let removedTile = 1;
+                    for (let y = 0; y < 6; y++) {
+                        for (let x = 0; x < 6; x++) {
+                            if (oldBoard[y][x] !== 0 && newBoard[y][x] === 0) {
+                                removedTile = oldBoard[y][x];
+                                removed.push([x - 2.5, 0.52, y - 2.5]);
+                            }
+                        }
+                    }
+                    if (removed.length === 3) {
+                        $graduatingLines = [...$graduatingLines, {
+                            positions: removed as [[number, number, number], [number, number, number], [number, number, number]],
+                            tile: removedTile,
+                        }];
+                    }
+                }
 
-            // Animation sequencing is reactive:
-            // 1. Placement arc runs → sets placementLanded when done
-            // 2. SlidingPiece waits for placementLanded
-            // 3. FlyingPiece waits for placementLanded AND slidingPieces to be empty
-            if (newSliding.length > 0) {
-                $slidingPieces = [...$slidingPieces, ...newSliding];
-            }
+                // MAX_WAITING → WAITING: single piece graduation
+                if (isMaxSelection && newPayload.state === "WAITING") {
+                    const oldBoard = oldState.board;
+                    const newBoard = newPayload.board;
+                    for (let y = 0; y < 6; y++) {
+                        for (let x = 0; x < 6; x++) {
+                            if (oldBoard[y][x] !== 0 && newBoard[y][x] === 0) {
+                                const tile = oldBoard[y][x];
+                                const worldPos: [number, number, number] = [x - 2.5, 0.52, y - 2.5];
+                                $graduatingLines = [...$graduatingLines, {
+                                    positions: [worldPos, worldPos, worldPos],
+                                    tile,
+                                }];
+                            }
+                        }
+                    }
+                }
 
-            if (newBoopedOff.length > 0) {
-                $boopedOffPieces = [...$boopedOffPieces, ...newBoopedOff];
+                $gameState = newPayload;
+                console.log($gameState);
             }
-
-            $gameState = newPayload;
-            console.log($gameState);
-            } // end duplicate guard
         }
         if (msg.type == "error" && msg.payload == "Could not join game") {
             console.log("Could not join game");

@@ -5,36 +5,44 @@
 
 	const defaults = {
 		arcDuration: 0.6, arcHeight: 5, arcLandThreshold: 0.85,
+		slideDelay: -0.05, flyDelay: -0.4,
 		slideDuration: 0.25, slideArcHeight: 0.2,
 		bumpDuration: 0.15, bumpDistance: 1.5, bumpArcHeight: 0.3,
-		gravity: 18, bumpVelocityY: 3, bumpVelocityXZ: 4, groundY: -2.7,
+		gravity: 18, bumpVelocityY: 3, bumpVelocityXZ: 4, groundY: -2.1,
 		bounceEnergyLoss: 0.4, bounceFriction: 0.5, bounceMinVelocity: 1,
 		tumbleSpeed: 6, shrinkDuration: 0.4,
 	};
 
-	const sliders: { key: string; label: string; tip: string; min: number; max: number; step: number }[] = [
-		// Placement arc
-		{ key: "arcDuration", label: "Arc Duration", tip: "How long the placement arc animation takes (seconds)", min: 0.1, max: 2, step: 0.05 },
-		{ key: "arcHeight", label: "Arc Height", tip: "Peak height of the arc when placing a piece", min: 1, max: 15, step: 0.5 },
-		{ key: "arcLandThreshold", label: "Arc Land Trigger %", tip: "At what % of the arc to trigger boop animations (0.85 = 85%)", min: 0.5, max: 1, step: 0.01 },
+	type Section = { title: string; color: string; sliders: { key: string; label: string; tip: string; min: number; max: number; step: number }[] };
 
-		// Slide
-		{ key: "slideDuration", label: "Slide Duration", tip: "How long a booped piece takes to slide to its new position", min: 0.05, max: 1, step: 0.05 },
-		{ key: "slideArcHeight", label: "Slide Arc Height", tip: "How high a sliding piece lifts off the board during its slide", min: 0, max: 1, step: 0.05 },
-
-		// Flying
-		{ key: "bumpDuration", label: "Bump Duration", tip: "Initial bump animation before the piece goes into freefall", min: 0.05, max: 0.5, step: 0.01 },
-		{ key: "bumpDistance", label: "Bump Distance", tip: "How far the initial bump pushes the piece outward", min: 0.5, max: 4, step: 0.1 },
-		{ key: "bumpArcHeight", label: "Bump Arc Height", tip: "How high the piece lifts during the initial bump", min: 0, max: 2, step: 0.05 },
-		{ key: "gravity", label: "Gravity", tip: "Downward acceleration during freefall after being booped off", min: 5, max: 40, step: 1 },
-		{ key: "bumpVelocityY", label: "Launch Up Speed", tip: "Upward velocity when the piece launches into freefall", min: 0, max: 10, step: 0.5 },
-		{ key: "bumpVelocityXZ", label: "Launch Out Speed", tip: "Horizontal velocity when the piece launches into freefall", min: 0, max: 10, step: 0.5 },
-		{ key: "groundY", label: "Ground Level", tip: "Y position of the ground plane for bounce detection", min: -5, max: 0, step: 0.1 },
-		{ key: "bounceEnergyLoss", label: "Bounce Energy", tip: "How much velocity is kept after each bounce (0=dead stop, 1=perfect bounce)", min: 0, max: 1, step: 0.05 },
-		{ key: "bounceFriction", label: "Bounce Friction", tip: "How much horizontal speed is lost on each bounce (0=none, 1=full stop)", min: 0, max: 1, step: 0.05 },
-		{ key: "bounceMinVelocity", label: "Bounce Min Vel", tip: "Below this velocity the piece stops bouncing and settles", min: 0, max: 5, step: 0.1 },
-		{ key: "tumbleSpeed", label: "Tumble Speed", tip: "How fast the piece rotates while flying through the air", min: 0, max: 15, step: 0.5 },
-		{ key: "shrinkDuration", label: "Shrink Duration", tip: "How long the piece takes to shrink and disappear after landing", min: 0.1, max: 1, step: 0.05 },
+	const sections: Section[] = [
+		{ title: "Placement Arc", color: "#d4eef6", sliders: [
+			{ key: "arcDuration", label: "Arc Duration", tip: "How long the placement arc animation takes (seconds)", min: 0.1, max: 2, step: 0.05 },
+			{ key: "arcHeight", label: "Arc Height", tip: "Peak height of the arc when placing a piece", min: 1, max: 15, step: 0.5 },
+			{ key: "arcLandThreshold", label: "Arc Land Trigger %", tip: "At what % of the arc to trigger boop animations (0.85 = 85%)", min: 0.5, max: 1, step: 0.01 },
+		]},
+		{ title: "Timing", color: "#e4daf6", sliders: [
+			{ key: "slideDelay", label: "Slide Delay", tip: "Delay after placement lands before slides start. Negative = overlap with arc", min: -0.5, max: 0.5, step: 0.05 },
+			{ key: "flyDelay", label: "Fly Delay", tip: "Delay after placement lands before flying pieces start. Negative = overlap with arc", min: -0.5, max: 0.5, step: 0.05 },
+		]},
+		{ title: "Slide", color: "#d4f0e0", sliders: [
+			{ key: "slideDuration", label: "Slide Duration", tip: "How long a booped piece takes to slide to its new position", min: 0.05, max: 1, step: 0.05 },
+			{ key: "slideArcHeight", label: "Slide Arc Height", tip: "How high a sliding piece lifts off the board during its slide", min: 0, max: 1, step: 0.05 },
+		]},
+		{ title: "Flying", color: "#f6ddd4", sliders: [
+			{ key: "bumpDuration", label: "Bump Duration", tip: "Initial bump animation before the piece goes into freefall", min: 0.05, max: 0.5, step: 0.01 },
+			{ key: "bumpDistance", label: "Bump Distance", tip: "How far the initial bump pushes the piece outward", min: 0.5, max: 4, step: 0.1 },
+			{ key: "bumpArcHeight", label: "Bump Arc Height", tip: "How high the piece lifts during the initial bump", min: 0, max: 2, step: 0.05 },
+			{ key: "gravity", label: "Gravity", tip: "Downward acceleration during freefall after being booped off", min: 5, max: 40, step: 1 },
+			{ key: "bumpVelocityY", label: "Launch Up Speed", tip: "Upward velocity when the piece launches into freefall", min: 0, max: 10, step: 0.5 },
+			{ key: "bumpVelocityXZ", label: "Launch Out Speed", tip: "Horizontal velocity when the piece launches into freefall", min: 0, max: 10, step: 0.5 },
+			{ key: "groundY", label: "Ground Level", tip: "Y position of the ground plane for bounce detection", min: -5, max: 0, step: 0.1 },
+			{ key: "bounceEnergyLoss", label: "Bounce Energy", tip: "How much velocity is kept after each bounce (0=dead stop, 1=perfect bounce)", min: 0, max: 1, step: 0.05 },
+			{ key: "bounceFriction", label: "Bounce Friction", tip: "How much horizontal speed is lost on each bounce (0=none, 1=full stop)", min: 0, max: 1, step: 0.05 },
+			{ key: "bounceMinVelocity", label: "Bounce Min Vel", tip: "Below this velocity the piece stops bouncing and settles", min: 0, max: 5, step: 0.1 },
+			{ key: "tumbleSpeed", label: "Tumble Speed", tip: "How fast the piece rotates while flying through the air", min: 0, max: 15, step: 0.5 },
+			{ key: "shrinkDuration", label: "Shrink Duration", tip: "How long the piece takes to shrink and disappear after landing", min: 0.1, max: 1, step: 0.05 },
+		]},
 	];
 
 	function handleInput(key: string, value: number) {
@@ -50,22 +58,27 @@
 	<div class="panel">
 		<h3>Animation Tuning</h3>
 		<button class="dump" onclick={() => console.log(JSON.stringify($animConfig))}>Print to Console</button>
-		{#each sliders as s}
-			<label>
-				<span class="label" title={s.tip}>{s.label}</span>
-				<input
-					type="range"
-					min={s.min}
-					max={s.max}
-					step={s.step}
-					value={$animConfig[s.key as keyof typeof $animConfig]}
-					oninput={(e) => handleInput(s.key, parseFloat((e.target as HTMLInputElement).value))}
-				/>
-				<span class="value">{($animConfig[s.key as keyof typeof $animConfig]).toFixed(2)}</span>
-				{#if $animConfig[s.key as keyof typeof $animConfig] !== defaults[s.key as keyof typeof defaults]}
-					<button class="reset" title="Reset to default ({defaults[s.key as keyof typeof defaults]})" onclick={() => handleInput(s.key, defaults[s.key as keyof typeof defaults])}>↺</button>
-				{/if}
-			</label>
+		{#each sections as section}
+			<div class="section" style="border-left: 3px solid {section.color};">
+				<span class="section-title" style="color: {section.color};">{section.title}</span>
+				{#each section.sliders as s}
+					<label>
+						<span class="label" title={s.tip}>{s.label}</span>
+						<input
+							type="range"
+							min={s.min}
+							max={s.max}
+							step={s.step}
+							value={$animConfig[s.key as keyof typeof $animConfig]}
+							oninput={(e) => handleInput(s.key, parseFloat((e.target as HTMLInputElement).value))}
+						/>
+						<span class="value">{($animConfig[s.key as keyof typeof $animConfig]).toFixed(2)}</span>
+						{#if $animConfig[s.key as keyof typeof $animConfig] !== defaults[s.key as keyof typeof defaults]}
+							<button class="reset" title="Reset to default ({defaults[s.key as keyof typeof defaults]})" onclick={() => handleInput(s.key, defaults[s.key as keyof typeof defaults])}>↺</button>
+						{/if}
+					</label>
+				{/each}
+			</div>
 		{/each}
 	</div>
 {/if}
@@ -103,6 +116,21 @@
 		padding: 0.8rem;
 		box-shadow: 0 4px 16px rgba(100, 80, 60, 0.15);
 		pointer-events: all;
+	}
+
+	.section {
+		padding: 0.3rem 0 0.3rem 0.5rem;
+		margin-bottom: 0.4rem;
+	}
+
+	.section-title {
+		font-family: "Nunito", sans-serif;
+		font-size: 0.6rem;
+		font-weight: 800;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		display: block;
+		margin-bottom: 0.2rem;
 	}
 
 	.dump {

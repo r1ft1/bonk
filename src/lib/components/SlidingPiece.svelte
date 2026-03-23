@@ -2,19 +2,17 @@
   import { Group, MathUtils } from "three";
   import { T, useTask } from "@threlte/core";
   import { useGltf, Outlines, Edges } from "@threlte/extras";
-  import { isMobile } from "./stores";
+  import { isMobile, placementLanded, animConfig } from "./stores";
 
   let {
     tile: _tile,
     startPos: _startPos,
     endPos: _endPos,
-    delay = 0.3,
     onDone,
   }: {
     tile: number;
     startPos: [number, number, number];
     endPos: [number, number, number];
-    delay?: number;
     onDone: () => void;
   } = $props();
 
@@ -30,28 +28,35 @@
   const color = tile === 1 || tile === 2 ? "orange" : "lightblue";
   const gltf = useGltf(isCat ? "/cat.glb" : "/kitten.glb");
 
-  const duration = 0.25;
   let elapsed = 0;
+  let waitElapsed = 0;
+  let started = false;
 
   function easeInOut(t: number): number {
     return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
   }
 
   useTask((delta) => {
+    const cfg = $animConfig;
+    // Wait for placement arc to land + configurable delay
+    // Negative = skip ahead into animation (as if it started earlier)
+    if (!started) {
+      if (!$placementLanded) return;
+      waitElapsed += delta;
+      if (waitElapsed < cfg.slideDelay) return;
+      started = true;
+      // Negative delay: pre-advance elapsed so animation is already partway through
+      if (cfg.slideDelay < 0) elapsed = -cfg.slideDelay;
+    }
+
     elapsed += delta;
-
-    // Wait for delay before starting the slide
-    if (elapsed < delay) return;
-
-    const moveElapsed = elapsed - delay;
-    const t = easeInOut(Math.min(moveElapsed / duration, 1));
+    const t = easeInOut(Math.min(elapsed / cfg.slideDuration, 1));
 
     ref.position.x = MathUtils.lerp(startPos[0], endPos[0], t);
     ref.position.z = MathUtils.lerp(startPos[2], endPos[2], t);
-    // Small arc upward during slide
-    ref.position.y = MathUtils.lerp(startPos[1], endPos[1], t) + 0.2 * Math.sin(t * Math.PI);
+    ref.position.y = MathUtils.lerp(startPos[1], endPos[1], t) + cfg.slideArcHeight * Math.sin(t * Math.PI);
 
-    if (moveElapsed >= duration) {
+    if (elapsed >= cfg.slideDuration) {
       onDone();
     }
   });

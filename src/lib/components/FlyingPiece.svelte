@@ -2,19 +2,17 @@
   import { Group, MathUtils } from "three";
   import { T, useTask } from "@threlte/core";
   import { useGltf, Outlines, Edges } from "@threlte/extras";
-  import { isMobile } from "./stores";
+  import { isMobile, placementLanded, animConfig } from "./stores";
 
   let {
     tile: _tile,
     startPos: _startPos,
     direction: _direction,
-    delay = 0,
     onDone,
   }: {
     tile: number;
     startPos: [number, number, number];
     direction: [number, number];
-    delay?: number;
     onDone: () => void;
   } = $props();
 
@@ -30,82 +28,79 @@
   const color = tile === 1 || tile === 2 ? "orange" : "lightblue";
   const gltf = useGltf(isCat ? "/cat.glb" : "/kitten.glb");
 
-  // Bumped off the edge of the board like falling off a bed
-  const edgeX = startPos[0] + direction[0] * 1.5;
-  const edgeZ = startPos[2] + direction[1] * 1.5;
-  const groundY = -2.7;
-
-  // Physics constants
-  const gravity = 18; // units/s^2
-  const bumpVelocityY = 3; // initial upward pop
-  const bumpVelocityXZ = 4; // horizontal bump speed
-
   let elapsed = 0;
-  let vy = 0; // vertical velocity
-  let vx = 0; // horizontal velocities
+  let waitElapsed = 0;
+  let vy = 0;
+  let vx = 0;
   let vz = 0;
   let landed = false;
   let landedTime = 0;
+  let started = false;
 
   function easeOut(t: number): number {
     return 1 - Math.pow(1 - t, 3);
   }
 
   useTask((delta) => {
-    elapsed += delta;
-
-    // Wait at start position during delay
-    if (elapsed < delay) return;
-    const t_elapsed = elapsed - delay;
-
-    // Phase 1 (0–0.15s): bump — slide to board edge with upward pop
-    if (t_elapsed < 0.15) {
-      const t = easeOut(t_elapsed / 0.15);
-      ref.position.x = MathUtils.lerp(startPos[0], edgeX, t);
-      ref.position.z = MathUtils.lerp(startPos[2], edgeZ, t);
-      ref.position.y = startPos[1] + 0.3 * Math.sin(t * Math.PI);
+    const cfg = $animConfig;
+    // Wait for placement arc to land + configurable delay
+    // Negative = skip ahead into animation (as if it started earlier)
+    if (!started) {
+      if (!$placementLanded) return;
+      waitElapsed += delta;
+      if (waitElapsed < cfg.flyDelay) return;
+      started = true;
+      if (cfg.flyDelay < 0) elapsed = -cfg.flyDelay;
     }
 
-    // Phase 2 (0.15s+): physics-based freefall
-    if (t_elapsed >= 0.15 && !landed) {
-      // Initialize velocity on first frame of freefall
+    const edgeX = startPos[0] + direction[0] * cfg.bumpDistance;
+    const edgeZ = startPos[2] + direction[1] * cfg.bumpDistance;
+
+    elapsed += delta;
+    const t_elapsed = elapsed;
+
+    // Phase 1: bump — slide to board edge with upward pop
+    if (t_elapsed < cfg.bumpDuration) {
+      const t = easeOut(t_elapsed / cfg.bumpDuration);
+      ref.position.x = MathUtils.lerp(startPos[0], edgeX, t);
+      ref.position.z = MathUtils.lerp(startPos[2], edgeZ, t);
+      ref.position.y = startPos[1] + cfg.bumpArcHeight * Math.sin(t * Math.PI);
+    }
+
+    // Phase 2: physics-based freefall
+    if (t_elapsed >= cfg.bumpDuration && !landed) {
       if (vy === 0 && vx === 0) {
-        vy = bumpVelocityY;
-        vx = direction[0] * bumpVelocityXZ;
-        vz = direction[1] * bumpVelocityXZ;
+        vy = cfg.bumpVelocityY;
+        vx = direction[0] * cfg.bumpVelocityXZ;
+        vz = direction[1] * cfg.bumpVelocityXZ;
       }
 
-      // Apply gravity
-      vy -= gravity * delta;
-
-      // Update position
+      vy -= cfg.gravity * delta;
       ref.position.x += vx * delta;
       ref.position.z += vz * delta;
       ref.position.y += vy * delta;
 
       // Tumble
-      ref.rotation.x += delta * direction[1] * 6;
-      ref.rotation.z -= delta * direction[0] * 6;
+      ref.rotation.x += delta * direction[1] * cfg.tumbleSpeed;
+      ref.rotation.z -= delta * direction[0] * cfg.tumbleSpeed;
 
       // Hit the ground — bounce
-      if (ref.position.y <= groundY) {
-        ref.position.y = groundY;
-        if (Math.abs(vy) < 1) {
-          // Too slow to bounce, just land
+      if (ref.position.y <= cfg.groundY) {
+        ref.position.y = cfg.groundY;
+        if (Math.abs(vy) < cfg.bounceMinVelocity) {
           landed = true;
           landedTime = t_elapsed;
         } else {
-          // Bounce: lose 40% energy
-          vy = Math.abs(vy) * 0.4;
-          vx *= 0.5;
-          vz *= 0.5;
+          vy = Math.abs(vy) * cfg.bounceEnergyLoss;
+          vx *= cfg.bounceFriction;
+          vz *= cfg.bounceFriction;
         }
       }
     }
 
     // Phase 3: after landing, shrink away
     if (landed) {
-      const t = Math.min((t_elapsed - landedTime) / 0.4, 1);
+      const t = Math.min((t_elapsed - landedTime) / cfg.shrinkDuration, 1);
       const s = 1 - t;
       ref.scale.set(s, s, s);
       if (t >= 1) onDone();

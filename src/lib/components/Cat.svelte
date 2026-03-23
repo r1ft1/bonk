@@ -9,7 +9,7 @@ Command: npx @threlte/gltf@2.0.3 cat.glb
 	import { T, useTask } from "@threlte/core";
 	import { Outlines, useGltf, Edges } from "@threlte/extras";
 	import { animate } from "motion";
-	import { gameState, isMobile, placementLanded, animConfig } from "./stores";
+	import { gameState, isMobile, placementLanded, animConfig, arcTrigger } from "./stores";
 
 	const LINE_COLORS = ["#00ffff", "#ff00ff", "#ffff00", "#00ff00"];
 	const SWAP_PERIOD = 1.5;
@@ -74,17 +74,16 @@ Command: npx @threlte/gltf@2.0.3 cat.glb
 	});
 
 	$effect(() => {
-		const turn = $gameState.turnNumber;
-		const placed = $gameState.placed;
+		const trigger = $arcTrigger;
 		if (
-			placed.piece !== 0 &&
-			turn !== lastArcTurn &&
-			placed.position.x == position[0] + 2.5 &&
-			placed.position.y == position[2] + 2.5
+			trigger.piece !== 0 &&
+			trigger.turn !== lastArcTurn &&
+			trigger.x == position[0] + 2.5 &&
+			trigger.y == position[2] + 2.5
 		) {
-			lastArcTurn = turn;
+			lastArcTurn = trigger.turn;
 			const targetWorld = new Vector3(position[0], position[1], position[2]);
-			const spawn = turn % 2 === 1 ? P1_SPAWN : P2_SPAWN;
+			const spawn = trigger.turn % 2 === 1 ? P1_SPAWN : P2_SPAWN;
 
 			arcStart = {
 				x: spawn.x - targetWorld.x,

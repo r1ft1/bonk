@@ -8,6 +8,7 @@ export type GameState = {
 	state: string;
 	//original: number[][];
 	turnNumber: number;
+	broadcastSeq: number;
 	p1: Player;
 	p2: Player;
 	winner: number;
@@ -150,12 +151,19 @@ export let isMobile = writable(false);
 // Signals when the placement arc animation has landed
 export let placementLanded = writable(true);
 
+// Set only on real placements (not graduation selections) to trigger arc animation
+export let arcTrigger = writable({ x: 0, y: 0, piece: 0, turn: -1 });
+
 // Animation tuning parameters — controlled via debug overlay
 export const animConfig = writable({
 	// Placement arc
 	arcDuration: 0.6,
 	arcHeight: 5,
 	arcLandThreshold: 0.85, // trigger boops at this % of arc
+
+	// Timing between animations (negative = overlap, positive = gap)
+	slideDelay: -0.05,
+	flyDelay: -0.4,
 
 	// Sliding piece (on-board boop)
 	slideDuration: 0.25,
@@ -168,7 +176,7 @@ export const animConfig = writable({
 	gravity: 18,
 	bumpVelocityY: 3,
 	bumpVelocityXZ: 4,
-	groundY: -2.7,
+	groundY: -2.1,
 	bounceEnergyLoss: 0.4,
 	bounceFriction: 0.5,
 	bounceMinVelocity: 1,
