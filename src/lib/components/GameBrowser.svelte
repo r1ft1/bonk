@@ -13,6 +13,7 @@
         slidingPieces,
         pieceChoice,
         arcTrigger,
+        placementLanded,
     } from "./stores";
     import type { ServerMessage } from "./stores";
     import { PUBLIC_SERVER_WS_URL, PUBLIC_SERVER_HTTP_URL } from "$env/static/public";
@@ -130,6 +131,7 @@
                 if (isPlacement) {
                     const placed = newPayload.placed;
                     if (placed && placed.piece !== 0) {
+                        $placementLanded = false;
                         $arcTrigger = { x: placed.position.x, y: placed.position.y, piece: placed.piece, turn: newPayload.turnNumber };
                     }
 
