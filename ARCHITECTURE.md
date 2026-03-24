@@ -80,6 +80,7 @@ All timing is configurable via `$animConfig` store and the AnimDebug panel (gear
 2. `$placementLanded` signals at `arcLandThreshold`% of the arc
 3. Slides start after `$placementLanded` + `slideDelay`
 4. Flying starts after `$placementLanded` + `flyDelay`
+5. Graduation starts after `$placementLanded`
 
 Delay values: positive = wait after landing, negative = count from mount time (starts before landing).
 

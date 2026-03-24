@@ -2,7 +2,7 @@
   import { Group, MathUtils } from "three";
   import { T, useTask } from "@threlte/core";
   import { useGltf, Outlines, Edges } from "@threlte/extras";
-  import { isMobile } from "./stores";
+  import { isMobile, placementLanded } from "./stores";
 
   let {
     positions: _positions,
@@ -41,6 +41,7 @@
 
   // Timeline-driven animation using useTask (not affected by Reduced Motion)
   let elapsed = 0;
+  let started = false;
 
   // Snapshot start positions for lerping
   const start0 = { x: positions[0][0], z: positions[0][2] };
@@ -55,6 +56,12 @@
   }
 
   useTask((delta) => {
+    // Wait for placement arc to land before starting graduation
+    if (!started) {
+      if (!$placementLanded) return;
+      started = true;
+    }
+
     elapsed += delta;
 
     // Phase 1 (0–0.35s): outer kittens slide toward middle
