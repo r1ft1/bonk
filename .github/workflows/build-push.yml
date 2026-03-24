@@ -21,10 +21,13 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:
           context: .
           push: true
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
           build-args: |
             PUBLIC_SERVER_HTTP_URL=https://boop.oatmocha.com
             PUBLIC_SERVER_WS_URL=wss://boop.oatmocha.com
@@ -44,10 +47,13 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:
           context: ./logic
           push: true
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
           tags: |
             ${{ env.IMAGE_PREFIX }}/backend:${{ github.ref_name }}
             ${{ env.IMAGE_PREFIX }}/backend:${{ github.sha }}
