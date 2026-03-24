@@ -35,6 +35,7 @@ Each broadcast from the server contains:
 | `boopMovement` | Pieces that slid on-board (cleared after graduation) |
 | `booped` | Pieces knocked off-board (cleared after graduation) |
 | `lines` | Detected 3-in-a-rows (cleared after graduation) |
+| `graduatedLine` | Positions of pieces graduated in selection response (MULTIPLE/MAX_WAITING only) |
 | `threeChoices` | Middle positions for MULTIPLE_WAITING selection |
 
 ## Frontend Animation Trigger Logic
@@ -48,8 +49,8 @@ The message handler in `GameBrowser.svelte` determines which animations to trigg
 | WAITING | WAITING | Placement arc + slides + flying + auto-graduation |
 | WAITING | MULTIPLE_WAITING | Placement arc + slides + flying |
 | WAITING | MAX_WAITING | Placement arc + slides + flying |
-| MULTIPLE_WAITING | WAITING | Graduation animation (board diff finds 3 removed pieces) |
-| MAX_WAITING | WAITING | Single-piece graduation (board diff, same position ×3) |
+| MULTIPLE_WAITING | WAITING | Graduation animation (server-provided `graduatedLine`) |
+| MAX_WAITING | WAITING | Single-piece graduation (server-provided `graduatedLine`, padded to 3) |
 | Any | Same broadcastSeq | Skip (dedup) |
 
 ### Dedup
@@ -87,11 +88,33 @@ Delay values: positive = wait after landing, negative = count from mount time (s
 ### Robustness
 
 - **Arc delta capped** at 50ms per frame (`Math.min(delta, 0.05)`) — prevents skipping the entire arc on frame spikes
-- **Arc preserved during graduation** — if the placed piece is removed from the board by auto-graduation, Board.svelte still renders it at the placed position while `$placementLanded` is false (checks `$arcTrigger`)
+- **Pieces preserved during arc** — Board.svelte keeps the placed piece visible via `$arcTrigger`, and graduating pieces visible via `$graduatingLines` + `previousBoard`, while `$placementLanded` is false. This prevents pieces from vanishing before the arc lands.
+- **GraduatingLine meshes hidden until start** — meshes are scale(0) on mount, shown when animation starts after `$placementLanded`. Prevents visual pop before arc lands.
 - **FlyingPiece uses fixed 120Hz timestep** for physics — accumulates real time, steps in fixed increments. Prevents frame-rate-dependent bounce/gravity behavior
 - **Store reset on startOver** — `$graduatingLines`, `$boopedOffPieces`, `$slidingPieces`, `$arcTrigger`, `$placementLanded` all reset when starting a new game
 - **Auto piece selection** — when a player has 0 of their selected piece type, auto-switches to the other
 - **Backward compat** — frontend handles both uppercase (`X`/`Y`) and lowercase (`x`/`y`) direction keys from backend (fallback for cached old backend images)
+
+### Data Flow Principle
+
+The frontend NEVER re-derives data the server already computed. All animation data comes directly from the server payload — the frontend only converts board coordinates to 3D world coordinates.
+
+| Transition | Server provides | Frontend does |
+|---|---|---|
+| Placement | `placed`, `boopMovement`, `booped`, `lines` | Coord conversion only |
+| Graduation selection | `graduatedLine` | Coord conversion + pad to 3 positions |
+
+No board diffing, no game logic on the frontend.
+
+## Backend Concurrency
+
+- **Buffered send channel** (16) with non-blocking sends — prevents blocking when writePump is slow
+- **Done channel per game** — closed on cleanup, signals all goroutines to exit
+- **Snapshot-then-write** — writePump copies player map under lock, writes without lock (prevents deadlock)
+- **Consistent lock ordering** — `serverMutex` always before `game.mutex`, never reversed
+- **Write deadlines** (10s) on all WebSocket writes — slow clients can't block the server
+- **Panic recovery** on all goroutines — caught and logged, doesn't crash the server
+- **Graceful shutdown** — SIGTERM/SIGINT drains connections over 10s
 
 ## Key Files
 
