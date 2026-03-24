@@ -78,8 +78,19 @@ All timing is configurable via `$animConfig` store and the AnimDebug panel (gear
 
 1. Placement arc fires immediately
 2. `$placementLanded` signals at `arcLandThreshold`% of the arc
-3. Slides start after `$placementLanded` + `slideDelay` (negative = overlap)
-4. Flying starts after `$placementLanded` + `flyDelay` (negative = overlap)
+3. Slides start after `$placementLanded` + `slideDelay`
+4. Flying starts after `$placementLanded` + `flyDelay`
+
+Delay values: positive = wait after landing, negative = count from mount time (starts before landing).
+
+### Robustness
+
+- **Arc delta capped** at 50ms per frame (`Math.min(delta, 0.05)`) — prevents skipping the entire arc on frame spikes
+- **Arc preserved during graduation** — if the placed piece is removed from the board by auto-graduation, Board.svelte still renders it at the placed position while `$placementLanded` is false (checks `$arcTrigger`)
+- **FlyingPiece uses fixed 120Hz timestep** for physics — accumulates real time, steps in fixed increments. Prevents frame-rate-dependent bounce/gravity behavior
+- **Store reset on startOver** — `$graduatingLines`, `$boopedOffPieces`, `$slidingPieces`, `$arcTrigger`, `$placementLanded` all reset when starting a new game
+- **Auto piece selection** — when a player has 0 of their selected piece type, auto-switches to the other
+- **Backward compat** — frontend handles both uppercase (`X`/`Y`) and lowercase (`x`/`y`) direction keys from backend (fallback for cached old backend images)
 
 ## Key Files
 
@@ -177,8 +188,10 @@ Without the explicit `.service=` link, Traefik sees multiple services (yours + C
 1. Check container is running: `docker ps | grep yg4gkks`
 2. Check container logs: `docker logs <container-name>`
 3. Test internal connectivity: `docker exec coolify-proxy wget -q -O- http://<container>:3000`
-4. Check Traefik errors: `docker logs coolify-proxy --tail 20 | grep ERR`
-5. If Traefik can reach container internally but external 504: restart proxy `docker restart coolify-proxy`
+4. Check which IP Traefik is using: `curl -s http://localhost:8080/api/http/services | python3 -c "import sys,json; [print(s['name'], s.get('serverStatus',{})) for s in json.load(sys.stdin) if 'boop' in s['name']]"`
+5. Check Traefik errors: `docker logs coolify-proxy --tail 20 | grep ERR`
+6. If wrong network IP: ensure `traefik.docker.network=coolify` label is set
+7. If stale Traefik state: `docker restart coolify-proxy`
 
 ## Docker Image Security
 
