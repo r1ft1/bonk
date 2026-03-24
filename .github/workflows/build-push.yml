@@ -58,15 +58,19 @@ jobs:
     steps:
       - name: Set image tag to commit SHA
         run: |
+          set -euo pipefail
           API="${{ secrets.COOLIFY_API_URL }}/applications/${{ secrets.COOLIFY_APP_UUID }}/envs"
           AUTH="Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}"
           # Find and delete existing TAG env var
-          TAG_UUID=$(curl -s "$API" -H "$AUTH" | jq -r '.[] | select(.key=="TAG") | .uuid')
+          ENVS=$(curl -sf "$API" -H "$AUTH")
+          TAG_UUID=$(echo "$ENVS" | jq -r '.[] | select(.key=="TAG") | .uuid' 2>/dev/null || echo "")
           if [ -n "$TAG_UUID" ]; then
-            curl -s -X DELETE "${API}/${TAG_UUID}" -H "$AUTH"
+            echo "Deleting old TAG env (uuid: $TAG_UUID)"
+            curl -sf -X DELETE "${API}/${TAG_UUID}" -H "$AUTH"
           fi
           # Create TAG with commit SHA
-          curl -s -X POST "$API" \
+          echo "Creating TAG=${{ github.sha }}"
+          curl -sf -X POST "$API" \
             -H "$AUTH" \
             -H "Content-Type: application/json" \
             -d '{"key": "TAG", "value": "${{ github.sha }}", "is_buildtime": false, "is_runtime": true}'
