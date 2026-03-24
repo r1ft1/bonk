@@ -61,13 +61,14 @@ jobs:
           set -euo pipefail
           API="${{ secrets.COOLIFY_API_URL }}/applications/${{ secrets.COOLIFY_APP_UUID }}/envs"
           AUTH="Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}"
-          # Find and delete existing TAG env var
+          # Find and delete all existing TAG env vars
           ENVS=$(curl -sf "$API" -H "$AUTH")
-          TAG_UUID=$(echo "$ENVS" | jq -r '.[] | select(.key=="TAG") | .uuid' 2>/dev/null || echo "")
-          if [ -n "$TAG_UUID" ]; then
-            echo "Deleting old TAG env (uuid: $TAG_UUID)"
-            curl -sf -X DELETE "${API}/${TAG_UUID}" -H "$AUTH"
-          fi
+          echo "$ENVS" | jq -r '.[] | select(.key=="TAG") | .uuid' 2>/dev/null | while read -r TAG_UUID; do
+            if [ -n "$TAG_UUID" ]; then
+              echo "Deleting old TAG env (uuid: $TAG_UUID)"
+              curl -sf -X DELETE "${API}/${TAG_UUID}" -H "$AUTH"
+            fi
+          done
           # Create TAG with commit SHA
           echo "Creating TAG=${{ github.sha }}"
           curl -sf -X POST "$API" \
