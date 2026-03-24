@@ -66,6 +66,7 @@
     }
   }
 
+  let frameCount = 0;
   useTask((delta) => {
     const cfg = $animConfig;
     if (!started) {
@@ -73,6 +74,11 @@
       waitElapsed += delta;
       if (waitElapsed < cfg.flyDelay) return;
       started = true;
+      console.log('[FlyingPiece] started, first delta:', delta);
+    }
+    frameCount++;
+    if (frameCount <= 5 || frameCount % 10 === 0) {
+      console.log(`[FlyingPiece] f=${frameCount} dt=${delta.toFixed(4)} elapsed=${elapsed.toFixed(3)} y=${ref.position.y.toFixed(3)} vy=${vy.toFixed(2)} landed=${landed}`);
     }
 
     const edgeX = startPos[0] + direction[0] * cfg.bumpDistance;

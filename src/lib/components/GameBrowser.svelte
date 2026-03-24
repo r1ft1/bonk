@@ -35,7 +35,6 @@
 
         const data = await response.json();
         $waitingGameIDs = data.ids;
-        console.log(data);
     };
 
     const joinGame = async (gameID: string) => {
@@ -48,7 +47,6 @@
     let statusMessage = "";
 
     const startLocalPassAndPlay = async () => {
-        console.log("PUBLIC_SERVER_WS_URL:", PUBLIC_SERVER_WS_URL);
         if (!PUBLIC_SERVER_WS_URL) {
             statusMessage = "Error: PUBLIC_SERVER_WS_URL is not set";
             return;
@@ -61,7 +59,6 @@
         $p1WebSocket.onmessage = (event: MessageEvent<any>) => {
             const msg: ServerMessage = JSON.parse(event.data);
             if (msg.type == "joined") {
-                console.log(msg.gameID);
                 $p2WebSocket = new WebSocket(
                     `${PUBLIC_SERVER_WS_URL}/ws?gameID=${msg.gameID}`,
                 );
@@ -217,11 +214,9 @@
                 }
 
                 $gameState = newPayload;
-                console.log($gameState);
             }
         }
         if (msg.type == "error" && msg.payload == "Could not join game") {
-            console.log("Could not join game");
             if ($webSocket != null) $webSocket.close();
             if ($p1WebSocket != null) $p1WebSocket.close();
             if ($p2WebSocket != null) $p2WebSocket.close();
@@ -237,14 +232,12 @@
                 $pieceChoice = 0;
                 $inGame = true;
             }
-            console.log(msg.payload);
         } else if (msg.type == "gameState" && $waitingForOpponent) {
             // Opponent has joined — enter the game
             $waitingForOpponent = false;
             $pieceChoice = 0;
                 $inGame = true;
         } else {
-            console.log(msg.payload);
         }
     };
 </script>

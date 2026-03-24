@@ -88,8 +88,6 @@
 				}),
 			);
 		}
-		console.log(lastMove);
-		console.log($gameState);
 	};
 
 	interactivity();
@@ -364,7 +362,6 @@
 			);
 		}
 		$lastClickPos = { x: e.nativeEvent.clientX, y: e.nativeEvent.clientY };
-		console.log("pointerdown", highlightMesh.position);
 		wsSendMove(highlightMesh.position);
 		// @ts-ignore
 		highlightMesh.material.color.setHex(0xff0000);

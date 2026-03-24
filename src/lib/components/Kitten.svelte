@@ -126,7 +126,6 @@ Command: npx @threlte/gltf@2.0.3 kitten.glb
 		}
 	});
 
-	console.log(ref);
 </script>
 
 <T is={ref} dispose={false}>
