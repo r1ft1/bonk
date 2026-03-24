@@ -10,6 +10,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.boop-frontend.rule=Host(`boop.oatmocha.com`)"
+      - "traefik.http.routers.boop-frontend.service=boop-frontend"
       - "traefik.http.routers.boop-frontend.entrypoints=https"
       - "traefik.http.routers.boop-frontend.tls.certresolver=letsencrypt"
       - "traefik.http.services.boop-frontend.loadbalancer.server.port=3000"
@@ -31,6 +32,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.boop-backend.rule=Host(`boop.oatmocha.com`) && (PathPrefix(`/ws`) || PathPrefix(`/getWaitingGame`))"
+      - "traefik.http.routers.boop-backend.service=boop-backend"
       - "traefik.http.routers.boop-backend.priority=100"
       - "traefik.http.routers.boop-backend.entrypoints=https"
       - "traefik.http.routers.boop-backend.tls.certresolver=letsencrypt"
