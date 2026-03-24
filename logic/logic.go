@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 )
 
 type Position struct {
@@ -36,6 +37,46 @@ var directionMap = map[string]Direction{
 	"below":       {0, 1},
 	"bottomLeft":  {-1, 1},
 	"left":        {-1, 0},
+}
+
+// Tile constants
+const (
+	P1Kitten uint8 = 1
+	P1Cat    uint8 = 2
+	P2Kitten uint8 = 8
+	P2Cat    uint8 = 9
+)
+
+func isP1Piece(tile uint8) bool { return tile == P1Kitten || tile == P1Cat }
+func isP2Piece(tile uint8) bool { return tile == P2Kitten || tile == P2Cat }
+func isKitten(tile uint8) bool  { return tile == P1Kitten || tile == P2Kitten }
+func isCat(tile uint8) bool     { return tile == P1Cat || tile == P2Cat }
+
+func tileOwner(tile uint8) uint8 {
+	if isP1Piece(tile) {
+		return 1
+	}
+	if isP2Piece(tile) {
+		return 2
+	}
+	return 0
+}
+
+func (gs *GameState) restorePiece(tile uint8) {
+	switch tile {
+	case P1Kitten:
+		gs.P1.Kittens++
+		gs.P1.Placed--
+	case P1Cat:
+		gs.P1.Cats++
+		gs.P1.Placed--
+	case P2Kitten:
+		gs.P2.Kittens++
+		gs.P2.Placed--
+	case P2Cat:
+		gs.P2.Cats++
+		gs.P2.Placed--
+	}
 }
 
 type Board [6][6]uint8
@@ -258,7 +299,7 @@ func (board *Board) isMiddleOfThreeInARow(position Position) []Position {
 	if position.X > 0 && position.X < 5 {
 		if sameCategory((*board)[position.Y][position.X-1], tile) && sameCategory((*board)[position.Y][position.X+1], tile) {
 
-			fmt.Println("Found 3 in a row where placed piece was in the middle at position: ", position)
+			log.Println("Found 3 in a row at position:", position)
 			return []Position{
 				{X: position.X - 1, Y: position.Y},
 				{X: position.X, Y: position.Y},
@@ -271,7 +312,7 @@ func (board *Board) isMiddleOfThreeInARow(position Position) []Position {
 	if position.Y > 0 && position.Y < 5 {
 		if sameCategory((*board)[position.Y-1][position.X], tile) && sameCategory((*board)[position.Y+1][position.X], tile) {
 
-			fmt.Println("Found 3 in a row where placed piece was in the middle at position: ", position)
+			log.Println("Found 3 in a row at position:", position)
 			return []Position{
 				{X: position.X, Y: position.Y - 1},
 				{X: position.X, Y: position.Y},
@@ -284,7 +325,7 @@ func (board *Board) isMiddleOfThreeInARow(position Position) []Position {
 	if position.X > 0 && position.X < 5 && position.Y > 0 && position.Y < 5 {
 		if sameCategory((*board)[position.Y-1][position.X-1], tile) && sameCategory((*board)[position.Y+1][position.X+1], tile) {
 
-			fmt.Println("Found 3 in a row where placed piece was in the middle at position: ", position)
+			log.Println("Found 3 in a row at position:", position)
 			return []Position{
 				{X: position.X - 1, Y: position.Y - 1},
 				{X: position.X, Y: position.Y},
@@ -296,7 +337,7 @@ func (board *Board) isMiddleOfThreeInARow(position Position) []Position {
 	// Check top-right to bottom-left diagonal
 	if position.X > 0 && position.X < 5 && position.Y > 0 && position.Y < 5 {
 		if sameCategory((*board)[position.Y-1][position.X+1], tile) && sameCategory((*board)[position.Y+1][position.X-1], tile) {
-			fmt.Println("Found 3 in a row where placed piece was in the middle at position: ", position)
+			log.Println("Found 3 in a row at position:", position)
 			return []Position{
 				{X: position.X + 1, Y: position.Y - 1},
 				{X: position.X, Y: position.Y},
@@ -337,7 +378,7 @@ func (board *Board) checkBoardForThreeInARows(gameState *GameState) {
 							gameState.Lines = append(gameState.Lines, line)
 							gameState.ThreeChoices = append(gameState.ThreeChoices, position)
 							board.winCheck(line, gameState)
-							fmt.Println(x, y)
+							log.Printf("Three in a row at (%d, %d)", x, y)
 						}
 					}
 				}
@@ -357,11 +398,11 @@ func (board *Board) winCheck(line []Position, gameState *GameState) {
 		// fmt.Println("Checking position: ", position, "Contents: ", (*board)[position.Y][position.X])
 		if (*board)[position.Y][position.X] == 2 || (*board)[position.Y][position.X] == 9 {
 			countCats++
-			fmt.Println("count cats: ", countCats)
+			log.Println("count cats:", countCats)
 		}
 	}
 	if countCats == 3 {
-		fmt.Println("Player has won")
+		log.Println("Player has won")
 		if gameState.isPlayer1() {
 			gameState.Winner = 1
 		} else {
@@ -385,7 +426,7 @@ func (board *Board) winCheckMaxCats(gameState *GameState) bool {
 		}
 	}
 	if countCats >= 8 {
-		fmt.Println("Player has won by having 8 cats on the board")
+		log.Println("Player has won by having 8 cats on the board")
 		if gameState.isPlayer1() {
 			gameState.Winner = 1
 		} else {
@@ -508,7 +549,7 @@ func (board *Board) graduatePiece(piecePosition Position, gameState *GameState) 
 
 func (gameState *GameState) getLineContainingPosition(position Position) []Position {
 	// Return the line in which the position is in the middle of it
-	fmt.Println(gameState.Lines)
+	log.Println("Lines:", gameState.Lines)
 	for _, line := range gameState.Lines {
 		if position == line[1] {
 			return line
@@ -540,7 +581,7 @@ func (board *Board) boopCheck(booped []Booped, gameState *GameState) {
 		var isInBounds, outcomePositionContents = board.isDirectionInBounds(piece.Position, piece.Direction)
 		//if the piece's direction is out of bounds - then it is boopable, add back to player's pieces
 		if !isInBounds {
-			fmt.Printf("The piece %v at position %v is boopable and taken off the board\n", piece.Tile, piece.Position)
+			log.Printf("Piece %v at %v booped off board", piece.Tile, piece.Position)
 			(*board)[piece.Position.Y][piece.Position.X] = 0
 			gameState.Booped = append(gameState.Booped, piece)
 			if piece.Tile == 1 {

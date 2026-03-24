@@ -4,24 +4,29 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"sync"
+	"time"
 )
 
 func (s *Server) handleConnection(w http.ResponseWriter, r *http.Request) {
-	defer log.Print("route handler: handleConnection: function end")
-	// enableCors(&w)
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("Upgrade error: %v", err)
 		return
 	}
 
-	var gameID = r.URL.Query().Get("gameID")
+	gameID := r.URL.Query().Get("gameID")
 	var game *Game
 	var playerID string
 
 	if gameID == "" {
 		game = s.createGame(conn)
 		playerID = "player1"
+
+		// First player starts the writePump for this game
+		var wpWg sync.WaitGroup
+		wpWg.Add(1)
+		go game.writePump(s, &wpWg)
 	} else {
 		game = s.joinGame(conn, gameID)
 		playerID = "player2"
@@ -31,7 +36,9 @@ func (s *Server) handleConnection(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
 	// Send initial game state
+	conn.SetWriteDeadline(time.Now().Add(writeWait))
 	if err := conn.WriteJSON(Message{
 		Type:     "joined",
 		GameID:   game.ID,
@@ -42,37 +49,33 @@ func (s *Server) handleConnection(w http.ResponseWriter, r *http.Request) {
 		s.handlePlayerDisconnect(game.ID, playerID)
 		return
 	}
-	log.Print(s.games)
 
 	// Notify all players when a second player joins
 	if playerID == "player2" {
 		game.broadcastGameState()
 	}
 
-	// Start game loop
+	log.Printf("Player %s joined game %s", playerID, game.ID)
 	s.handleGameLoop(conn, game, playerID)
 }
 
 func (s *Server) handleGetWaitingGameID(w http.ResponseWriter, r *http.Request) {
-	log.Printf("GET /getWaitingGame %v", s.waitingGames)
 	enableCors(&w)
 	s.serverMutex.Lock()
 	defer s.serverMutex.Unlock()
 
-	//Send list of waiting game IDs to client
 	type GameIDs struct {
 		IDs []string `json:"ids"`
 	}
-	var IDs GameIDs
+	var ids GameIDs
 	if len(s.waitingGames) != 0 {
 		for id := range s.waitingGames {
-			IDs.IDs = append(IDs.IDs, id)
+			ids.IDs = append(ids.IDs, id)
 		}
 	} else {
-		IDs.IDs = append(IDs.IDs, "No games waiting")
+		ids.IDs = append(ids.IDs, "No games waiting")
 	}
-	jsonID, _ := json.Marshal(IDs)
-	log.Printf(string(jsonID))
+	jsonID, _ := json.Marshal(ids)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(jsonID)
 }
