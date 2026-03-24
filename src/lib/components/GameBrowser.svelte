@@ -113,11 +113,12 @@
         }
         if (msg.type != "error") {
             const newPayload = msg.payload;
-            const newSeq = newPayload.broadcastSeq ?? -1;
+            const newSeq = newPayload.broadcastSeq ?? null;
 
             // Duplicate guard: skip if we already processed this broadcast
             // (both p1/p2 sockets receive same broadcast in pass-and-play)
-            if (newSeq === lastProcessedSeq) {
+            // If broadcastSeq is missing (old backend), fall back to turnNumber dedup
+            if (newSeq !== null && newSeq === lastProcessedSeq) {
                 $gameState = newPayload;
             } else {
                 lastProcessedSeq = newSeq;

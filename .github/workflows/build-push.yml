@@ -56,6 +56,12 @@ jobs:
     needs: [build-frontend, build-backend]
     runs-on: ubuntu-latest
     steps:
+      - name: Set image tag to commit SHA
+        run: |
+          curl -s -X PATCH "${{ secrets.COOLIFY_API_URL }}/applications/${{ secrets.COOLIFY_APP_UUID }}/envs/${{ secrets.COOLIFY_TAG_ENV_UUID }}" \
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"key": "TAG", "value": "${{ github.sha }}"}'
       - name: Trigger Coolify deploy
         run: |
           curl -s "${{ secrets.COOLIFY_WEBHOOK }}" \
