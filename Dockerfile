@@ -26,6 +26,9 @@ COPY --from=builder /app/package*.json ./
 
 RUN npm ci --omit=dev && npm cache clean --force
 
+RUN adduser -D -u 1001 appuser
+USER appuser
+
 EXPOSE 3000
 
 CMD ["node", "build/index.js"]

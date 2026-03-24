@@ -14,9 +14,14 @@ FROM alpine:3.21
 
 RUN apk add --no-cache ca-certificates
 
+RUN adduser -D -u 1001 appuser && mkdir -p /data && chown appuser:appuser /data
+
 WORKDIR /app
 
 COPY --from=builder /app/server .
+RUN chown appuser:appuser /app/server
+
+USER appuser
 
 EXPOSE 8080
 
