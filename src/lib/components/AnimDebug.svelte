@@ -4,10 +4,10 @@
 	let visible = $state(false);
 
 	const defaults = {
-		arcDuration: 0.6, arcHeight: 5, arcLandThreshold: 0.85,
-		slideDelay: -0.05, flyDelay: -0.4,
+		arcDuration: 0.6, arcHeight: 5, arcLandThreshold: 1,
+		slideDelay: 0.1, flyDelay: 0,
 		slideDuration: 0.25, slideArcHeight: 0.2,
-		bumpDuration: 0.15, bumpDistance: 1.5, bumpArcHeight: 0.3,
+		bumpDuration: 0.25, bumpDistance: 0.8, bumpArcHeight: 0.3,
 		gravity: 18, bumpVelocityY: 3, bumpVelocityXZ: 4, groundY: -2.1,
 		bounceEnergyLoss: 0.4, bounceFriction: 0.5, bounceMinVelocity: 1,
 		tumbleSpeed: 6, shrinkDuration: 0.4,

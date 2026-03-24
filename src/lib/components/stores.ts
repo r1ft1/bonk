@@ -159,19 +159,19 @@ export const animConfig = writable({
 	// Placement arc
 	arcDuration: 0.6,
 	arcHeight: 5,
-	arcLandThreshold: 0.85, // trigger boops at this % of arc
+	arcLandThreshold: 1,
 
 	// Timing between animations (negative = overlap, positive = gap)
-	slideDelay: -0.05,
-	flyDelay: -0.4,
+	slideDelay: 0.1,
+	flyDelay: 0,
 
 	// Sliding piece (on-board boop)
 	slideDuration: 0.25,
 	slideArcHeight: 0.2,
 
 	// Flying piece (off-board boop)
-	bumpDuration: 0.15,
-	bumpDistance: 1.5,
+	bumpDuration: 0.25,
+	bumpDistance: 0.8,
 	bumpArcHeight: 0.3,
 	gravity: 18,
 	bumpVelocityY: 3,

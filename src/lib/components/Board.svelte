@@ -19,6 +19,8 @@
 		graduatingLines,
 		boopedOffPieces,
 		slidingPieces,
+		placementLanded,
+		arcTrigger,
 		isMobile as isMobileStore,
 	} from "./stores";
 	import { animate } from "motion";
@@ -38,6 +40,17 @@
 	});
 
 	let color = $derived($gameState.turnNumber % 2 === 0 ? "orange" : "lightblue");
+
+	// Auto-switch piece selection if current choice is unavailable
+	$effect(() => {
+		if ($gameState.state !== "WAITING") return;
+		const isP1 = $gameState.turnNumber % 2 === 0;
+		const player = isP1 ? $gameState.p1 : $gameState.p2;
+		const available = $pieceChoice === 0 ? player.kittens : player.cats;
+		if (available <= 0) {
+			$pieceChoice = $pieceChoice === 0 ? 1 : 0;
+		}
+	});
 
 	const wsSendMove = (move: THREE.Vector3) => {
 		if ($gameState.state === "WAITING") {
@@ -262,9 +275,11 @@
 		{@const isSliding = $slidingPieces.some(s =>
 			Math.abs(s.endPos[0] - (x - 2.5)) < 0.01 && Math.abs(s.endPos[2] - (y - 2.5)) < 0.01
 		)}
-		{#if piece != 0 && !isSliding}
+		{@const isArcingHere = !$placementLanded && $arcTrigger.piece !== 0 && $arcTrigger.x === x && $arcTrigger.y === y}
+		{@const displayPiece = piece !== 0 ? piece : (isArcingHere ? $arcTrigger.piece : 0)}
+		{#if displayPiece != 0 && !isSliding}
 			<Piece
-				{piece}
+				piece={displayPiece}
 				position={[x - 2.5, 0.52, y - 2.5]}
 				placed={false}
 				booped={false}

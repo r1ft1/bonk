@@ -62,7 +62,8 @@ Command: npx @threlte/gltf@2.0.3 kitten.glb
 
 		if (arcAnimating) {
 			const cfg = $animConfig;
-			arcProgress += delta / cfg.arcDuration;
+			// Cap delta to prevent skipping the entire arc on frame spikes
+			arcProgress += Math.min(delta, 0.05) / cfg.arcDuration;
 			// Signal landing slightly early so boops start as piece settles
 			if (!$placementLanded && arcProgress >= cfg.arcLandThreshold) {
 				$placementLanded = true;
