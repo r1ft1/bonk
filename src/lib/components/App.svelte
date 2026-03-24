@@ -3,7 +3,7 @@
 	import Scene from "./Scene.svelte";
 	import Renderer from "./Renderer.svelte";
 	import GameBrowser from "./GameBrowser.svelte";
-	import { inGame, gameState, lastClickPos, pieceChoice, noPiecesMsg, webSocket, p1WebSocket, p2WebSocket, newGameState, graduatingLines } from "./stores";
+	import { inGame, gameState, lastClickPos, pieceChoice, noPiecesMsg, webSocket, p1WebSocket, p2WebSocket, newGameState, graduatingLines, boopedOffPieces, slidingPieces, arcTrigger, placementLanded } from "./stores";
 	import GameInfo from "./GameInfo.svelte";
 	import AnimDebug from "./AnimDebug.svelte";
 
@@ -19,6 +19,11 @@
 		if ($p1WebSocket) $p1WebSocket.close();
 		if ($p2WebSocket) $p2WebSocket.close();
 		$gameState = newGameState();
+		$graduatingLines = [];
+		$boopedOffPieces = [];
+		$slidingPieces = [];
+		$arcTrigger = { x: 0, y: 0, piece: 0, turn: -1 };
+		$placementLanded = true;
 		$inGame = false;
 	};
 
