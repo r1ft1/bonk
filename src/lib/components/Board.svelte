@@ -276,7 +276,10 @@
 			Math.abs(s.endPos[0] - (x - 2.5)) < 0.01 && Math.abs(s.endPos[2] - (y - 2.5)) < 0.01
 		)}
 		{@const isArcingHere = !$placementLanded && $arcTrigger.piece !== 0 && $arcTrigger.x === x && $arcTrigger.y === y}
-		{@const displayPiece = piece !== 0 ? piece : (isArcingHere ? $arcTrigger.piece : 0)}
+		{@const isGraduatingHere = !$placementLanded && piece === 0 && $graduatingLines.some(l =>
+			l.positions.some(p => Math.abs(p[0] - (x - 2.5)) < 0.01 && Math.abs(p[2] - (y - 2.5)) < 0.01)
+		)}
+		{@const displayPiece = piece !== 0 ? piece : (isArcingHere ? $arcTrigger.piece : (isGraduatingHere ? ($gameState.previousBoard?.[y]?.[x] ?? 0) : 0))}
 		{#if displayPiece != 0 && !isSliding}
 			<Piece
 				piece={displayPiece}

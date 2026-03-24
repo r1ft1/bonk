@@ -35,6 +35,10 @@
   ref1.position.set(positions[1][0], positions[1][1], positions[1][2]);
   ref2.position.set(positions[2][0], positions[2][1], positions[2][2]);
   catRef.position.set(positions[1][0], positions[1][1], positions[1][2]);
+  // Hide all meshes until animation starts (prevents visual pop before arc lands)
+  ref0.scale.set(0, 0, 0);
+  ref1.scale.set(0, 0, 0);
+  ref2.scale.set(0, 0, 0);
   catRef.scale.set(0, 0, 0);
 
   const middle = positions[1];
@@ -60,6 +64,9 @@
     if (!started) {
       if (!$placementLanded) return;
       started = true;
+      ref0.scale.set(1, 1, 1);
+      ref1.scale.set(1, 1, 1);
+      ref2.scale.set(1, 1, 1);
     }
 
     elapsed += delta;
