@@ -93,3 +93,51 @@ All timing is configurable via `$animConfig` store and the AnimDebug panel (gear
 | `src/lib/components/AnimDebug.svelte` | Animation tuning debug panel |
 | `src/lib/components/{Kitten,Cat}.svelte` | Piece components with arc animation |
 | `src/lib/components/{SlidingPiece,FlyingPiece,GraduatingLine}.svelte` | Animation components |
+
+## Deployment Pipeline
+
+### Flow
+
+```
+git push main
+  → GitHub Actions builds frontend + backend Docker images
+  → Pushes to GHCR with :main and :<commit-sha> tags
+  → Updates Coolify TAG env var to commit SHA (delete + create via API)
+  → Triggers Coolify deploy webhook
+  → Coolify runs docker-compose with TAG=<sha>, pulling fresh images
+```
+
+### Coolify Image Caching Bug
+
+Coolify has a known bug ([#5587](https://github.com/coollabsio/coolify/issues/5587), [#7084](https://github.com/coollabsio/coolify/issues/7084)) where docker-compose images pulled from registries are cached and not re-pulled on deploy, even when the remote `:main` tag has been updated.
+
+**Workaround:** The docker-compose uses `image: ghcr.io/r1ft1/bonk/backend:${TAG:-main}`. The GitHub Actions workflow sets the `TAG` environment variable in Coolify to the commit SHA before triggering deploy. Since each SHA is a unique tag, Docker has no cached version and must pull fresh.
+
+The workflow updates the env var via the Coolify API (PATCH doesn't work for envs, so it does delete + create):
+1. `GET /api/v1/applications/<uuid>/envs` — find TAG env UUID
+2. `DELETE /api/v1/applications/<uuid>/envs/<tag-uuid>` — remove old value
+3. `POST /api/v1/applications/<uuid>/envs` — create with new SHA value
+4. `GET <webhook-url>` — trigger deploy
+
+### GitHub Actions Secrets Required
+
+| Secret | Purpose |
+|---|---|
+| `COOLIFY_WEBHOOK` | Deploy webhook URL |
+| `COOLIFY_TOKEN` | Coolify API bearer token |
+| `COOLIFY_API_URL` | Coolify API base (e.g. `https://coolify.oatmocha.com/api/v1`) |
+| `COOLIFY_APP_UUID` | Application UUID in Coolify |
+
+### Local Development
+
+```bash
+colima start                    # Start Docker runtime
+docker compose -f docker-compose.dev.yaml up -d
+# Frontend: http://localhost:5173 (hot reload, source mounted)
+# Backend: http://localhost:8080 (needs --build to pick up Go changes)
+```
+
+To rebuild backend after Go changes:
+```bash
+docker compose -f docker-compose.dev.yaml up -d --build backend
+```

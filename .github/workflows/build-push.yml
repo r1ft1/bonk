@@ -58,10 +58,18 @@ jobs:
     steps:
       - name: Set image tag to commit SHA
         run: |
-          curl -s -X PATCH "${{ secrets.COOLIFY_API_URL }}/applications/${{ secrets.COOLIFY_APP_UUID }}/envs/${{ secrets.COOLIFY_TAG_ENV_UUID }}" \
-            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+          API="${{ secrets.COOLIFY_API_URL }}/applications/${{ secrets.COOLIFY_APP_UUID }}/envs"
+          AUTH="Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}"
+          # Find and delete existing TAG env var
+          TAG_UUID=$(curl -s "$API" -H "$AUTH" | jq -r '.[] | select(.key=="TAG") | .uuid')
+          if [ -n "$TAG_UUID" ]; then
+            curl -s -X DELETE "${API}/${TAG_UUID}" -H "$AUTH"
+          fi
+          # Create TAG with commit SHA
+          curl -s -X POST "$API" \
+            -H "$AUTH" \
             -H "Content-Type: application/json" \
-            -d '{"key": "TAG", "value": "${{ github.sha }}"}'
+            -d '{"key": "TAG", "value": "${{ github.sha }}", "is_buildtime": false, "is_runtime": true}'
       - name: Trigger Coolify deploy
         run: |
           curl -s "${{ secrets.COOLIFY_WEBHOOK }}" \
