@@ -38,12 +38,16 @@
 
   useTask((delta) => {
     const cfg = $animConfig;
-    // Wait for placement arc to land + configurable delay
-    // Negative = skip ahead into animation (as if it started earlier)
     if (!started) {
-      if (!$placementLanded) return;
       waitElapsed += delta;
-      if (waitElapsed < cfg.slideDelay) return;
+      if (cfg.slideDelay < 0) {
+        // Negative delay: start before placement lands
+        if (waitElapsed < -cfg.slideDelay) return;
+      } else {
+        // Positive/zero delay: wait for landing + delay
+        if (!$placementLanded) return;
+        if (waitElapsed < cfg.slideDelay) return;
+      }
       started = true;
     }
 

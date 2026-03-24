@@ -70,11 +70,17 @@
   useTask((delta) => {
     const cfg = $animConfig;
     if (!started) {
-      if (!$placementLanded) return;
       waitElapsed += delta;
-      if (waitElapsed < cfg.flyDelay) return;
+      if (cfg.flyDelay < 0) {
+        // Negative delay: start before placement lands
+        if (waitElapsed < -cfg.flyDelay) return;
+      } else {
+        // Positive/zero delay: wait for landing + delay
+        if (!$placementLanded) return;
+        if (waitElapsed < cfg.flyDelay) return;
+      }
       started = true;
-      console.log('[FlyingPiece] started, first delta:', delta);
+      console.log('[FlyingPiece] started, first delta:', delta, 'waited:', waitElapsed.toFixed(3));
     }
     frameCount++;
     if (frameCount <= 5 || frameCount % 10 === 0) {
