@@ -119,6 +119,10 @@ The workflow updates the env var via the Coolify API (PATCH doesn't work for env
 3. `POST /api/v1/applications/<uuid>/envs` — create with new SHA value
 4. `GET <webhook-url>` — trigger deploy
 
+### Build Caching
+
+GitHub Actions uses `cache-from: type=gha` / `cache-to: type=gha,mode=max` with separate scopes for frontend and backend. This caches intermediate Docker layers between builds — if only source code changed, the `npm ci` / `go mod download` layers are reused. Typically saves 30-50% build time.
+
 ### GitHub Actions Secrets Required
 
 | Secret | Purpose |
@@ -141,3 +145,40 @@ To rebuild backend after Go changes:
 ```bash
 docker compose -f docker-compose.dev.yaml up -d --build backend
 ```
+
+## Traefik + Coolify Routing
+
+### The Problem
+
+Coolify auto-generates Traefik labels (`http-0-*`, `https-0-*`) for docker-compose apps. These conflict with custom labels in the compose file, causing Traefik error: "Router cannot be linked automatically with multiple Services."
+
+### The Fix
+
+Every custom router label MUST explicitly specify which service to use:
+
+```yaml
+- "traefik.http.routers.boop-frontend.service=boop-frontend"
+- "traefik.http.services.boop-frontend.loadbalancer.server.port=3000"
+```
+
+Without the explicit `.service=` link, Traefik sees multiple services (yours + Coolify's auto-generated ones) and refuses to route.
+
+### Known Pitfalls
+
+- **`pull_policy: always`** in docker-compose breaks Coolify deploys — do NOT use
+- Coolify's auto-generated router names (`http-0-*`) change between deploys — never reference them
+- For middleware, use `coolify.traefik.middlewares` label instead of manual router middleware labels
+- If HTTPS stops working (504), check if Traefik proxy needs a restart (`docker restart coolify-proxy` on VPS) — stale ACME/TLS state can block routing
+- `$` in compose labels must be escaped as `$$` to avoid Docker variable interpolation
+
+### Troubleshooting 504s
+
+1. Check container is running: `docker ps | grep yg4gkks`
+2. Check container logs: `docker logs <container-name>`
+3. Test internal connectivity: `docker exec coolify-proxy wget -q -O- http://<container>:3000`
+4. Check Traefik errors: `docker logs coolify-proxy --tail 20 | grep ERR`
+5. If Traefik can reach container internally but external 504: restart proxy `docker restart coolify-proxy`
+
+## Docker Image Security
+
+Both images run as non-root user `appuser` (uid 1001). The backend's `/data` directory is owned by `appuser` for SQLite and log file write access. Go binary is statically compiled (`CGO_ENABLED=0`) with stripped symbols (`-ldflags="-s -w"`).
