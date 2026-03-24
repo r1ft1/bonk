@@ -99,6 +99,7 @@ type GameState struct {
 	Winner            uint8          `json:"winner"`
 	Placed            Move           `json:"placed"`
 	BoopMovement      []BoopMovement `json:"boopMovement"`
+	GraduatedLine     []Position     `json:"graduatedLine,omitempty"`
 	Original          Board          `json:"original"`
 	PreviousBoard     Board          `json:"previousBoard"`
 }

@@ -174,44 +174,23 @@
                     }
                 }
 
-                // MULTIPLE_WAITING → WAITING: graduation of selected line
-                if (isMultipleSelection && newPayload.state === "WAITING") {
-                    // Diff boards to find the 3 removed pieces
-                    const oldBoard = oldState.board;
-                    const newBoard = newPayload.board;
-                    const removed: [number, number, number][] = [];
-                    let removedTile = 1;
-                    for (let y = 0; y < 6; y++) {
-                        for (let x = 0; x < 6; x++) {
-                            if (oldBoard[y][x] !== 0 && newBoard[y][x] === 0) {
-                                removedTile = oldBoard[y][x];
-                                removed.push([x - 2.5, 0.52, y - 2.5]);
-                            }
+                // MULTIPLE_WAITING / MAX_WAITING → WAITING: use server-provided graduated positions
+                if ((isMultipleSelection || isMaxSelection) && newPayload.state === "WAITING") {
+                    const gradLine = newPayload.graduatedLine as { x: number; y: number }[] | null;
+                    if (gradLine && gradLine.length > 0) {
+                        const worldPositions = gradLine.map(
+                            (p: { x: number; y: number }) => [p.x - 2.5, 0.52, p.y - 2.5] as [number, number, number]
+                        );
+                        // Determine tile from previousBoard at first graduated position
+                        const tile = newPayload.previousBoard?.[gradLine[0].y]?.[gradLine[0].x] ?? 1;
+                        // For single-piece graduation (MAX_WAITING), pad to 3 positions
+                        while (worldPositions.length < 3) {
+                            worldPositions.push(worldPositions[0]);
                         }
-                    }
-                    if (removed.length === 3) {
                         $graduatingLines = [...$graduatingLines, {
-                            positions: removed as [[number, number, number], [number, number, number], [number, number, number]],
-                            tile: removedTile,
+                            positions: worldPositions as [[number, number, number], [number, number, number], [number, number, number]],
+                            tile,
                         }];
-                    }
-                }
-
-                // MAX_WAITING → WAITING: single piece graduation
-                if (isMaxSelection && newPayload.state === "WAITING") {
-                    const oldBoard = oldState.board;
-                    const newBoard = newPayload.board;
-                    for (let y = 0; y < 6; y++) {
-                        for (let x = 0; x < 6; x++) {
-                            if (oldBoard[y][x] !== 0 && newBoard[y][x] === 0) {
-                                const tile = oldBoard[y][x];
-                                const worldPos: [number, number, number] = [x - 2.5, 0.52, y - 2.5];
-                                $graduatingLines = [...$graduatingLines, {
-                                    positions: [worldPos, worldPos, worldPos],
-                                    tile,
-                                }];
-                            }
-                        }
                     }
                 }
 

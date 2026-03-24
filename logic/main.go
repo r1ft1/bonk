@@ -355,6 +355,7 @@ func (game *Game) processTurn(newMove *NewMove) error {
 	defer game.mutex.Unlock()
 
 	game.GameState.PreviousBoard = game.GameState.Board
+	game.GameState.GraduatedLine = nil
 
 	kittenOrCat, _ := newMove.Piece.Int64()
 
@@ -415,6 +416,7 @@ func (game *Game) handleMultipleGraduations(selection *NewMove) error {
 	game.GameState.Board.graduatePieces(line, game.GameState)
 	log.Println("handleMultipleGrad: changing State to WAITING")
 	game.GameState.State = "WAITING"
+	game.GameState.GraduatedLine = line
 	game.GameState.Lines = nil
 	game.GameState.BoopMovement = nil
 	game.GameState.Booped = nil
@@ -433,6 +435,7 @@ func (game *Game) handleMaxedOutGraduation(selection *NewMove) error {
 	game.GameState.Board.graduatePiece(selection.Position, game.GameState)
 	log.Println("handleMaxedGrad: changing State to WAITING")
 	game.GameState.State = "WAITING"
+	game.GameState.GraduatedLine = []Position{selection.Position}
 	game.GameState.Lines = nil
 	game.GameState.BoopMovement = nil
 	game.GameState.Booped = nil
