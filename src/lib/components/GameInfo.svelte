@@ -12,11 +12,27 @@
 
 {#snippet playerBox(name: string, player: Player, color: string)}
 	<h3 style="color: {color}">{name}</h3>
-	<table class="stats-table"><tbody>
-		<tr><td class="stat-label">Kittens ({player.kittens})</td><td class="stat-faces">{':3 '.repeat(player.kittens).trim()}</td></tr>
-		<tr><td class="stat-label">Cats ({player.cats})</td><td class="stat-faces">{'>:3 '.repeat(player.cats).trim()}</td></tr>
-		<tr><td class="stat-label">Placed</td><td class="stat-faces">{player.placed}</td></tr>
-	</tbody></table>
+	<div class="desktop-pieces">
+		<div class="piece-row">
+			<span class="stat-label">Kittens ({player.kittens})</span>
+			<div class="piece-icons">
+				{#each Array(player.kittens) as _}
+					<span class="piece-icon" style="color: {color}">{@html kittenSvg}</span>
+				{/each}
+			</div>
+		</div>
+		<div class="piece-row">
+			<span class="stat-label">Cats ({player.cats})</span>
+			<div class="piece-icons">
+				{#each Array(player.cats) as _}
+					<span class="piece-icon piece-icon-cat" style="color: {color}">{@html catSvg}</span>
+				{/each}
+			</div>
+		</div>
+		<div class="piece-row">
+			<span class="stat-label">Placed: {player.placed}</span>
+		</div>
+	</div>
 {/snippet}
 
 {#if $isMobile}
@@ -176,15 +192,35 @@
 	}
 
 	.stat-label {
+		font-family: "Nunito", sans-serif;
+		font-size: 0.85rem;
 		font-weight: 700;
+		color: #5a4a3a;
 		white-space: nowrap;
-		padding-right: 0.6rem !important;
 	}
 
 	.stat-faces {
 		font-weight: 600;
 		color: #9a8a7a !important;
 		word-break: break-all;
+	}
+
+	.desktop-pieces {
+		display: flex;
+		flex-direction: column;
+		gap: 0.3rem;
+	}
+
+	.piece-row {
+		display: flex;
+		flex-direction: column;
+		gap: 0.15rem;
+	}
+
+	.piece-icons {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.1rem;
 	}
 
 	.player-1 {
@@ -241,14 +277,14 @@
 	}
 
 	.piece-icon {
-		width: 12px;
-		height: 12px;
+		width: 14px;
+		height: 14px;
 		display: inline-flex;
 	}
 
 	.piece-icon-cat {
-		width: 14px;
-		height: 14px;
+		width: 16px;
+		height: 16px;
 	}
 
 	.mobile-turn {
