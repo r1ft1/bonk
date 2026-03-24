@@ -165,10 +165,11 @@ Without the explicit `.service=` link, Traefik sees multiple services (yours + C
 
 ### Known Pitfalls
 
+- **`traefik.docker.network=coolify`** is REQUIRED on every service — without it, Traefik randomly picks a network IP when containers are on multiple networks. If it picks the internal compose network instead of the coolify network, the proxy can't reach the container → 504. This was the root cause of intermittent 504s.
+- **`traefik.http.routers.<name>.service=<name>`** is REQUIRED — Coolify generates competing service definitions. Without explicit linking, Traefik error: "cannot be linked automatically with multiple Services"
 - **`pull_policy: always`** in docker-compose breaks Coolify deploys — do NOT use
 - Coolify's auto-generated router names (`http-0-*`) change between deploys — never reference them
 - For middleware, use `coolify.traefik.middlewares` label instead of manual router middleware labels
-- If HTTPS stops working (504), check if Traefik proxy needs a restart (`docker restart coolify-proxy` on VPS) — stale ACME/TLS state can block routing
 - `$` in compose labels must be escaped as `$$` to avoid Docker variable interpolation
 
 ### Troubleshooting 504s
