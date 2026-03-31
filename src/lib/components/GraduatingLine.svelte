@@ -7,16 +7,21 @@
   let {
     positions: _positions,
     tile: _tile,
+    tiles: _tiles,
     onDone,
   }: {
     positions: [number, number, number][];
     tile: number;
+    tiles: number[];
     onDone: () => void;
   } = $props();
 
   // Snapshot props — these are initial values for a one-shot animation
   const positions = _positions.map(p => [...p] as [number, number, number]);
   const tile = _tile;
+  const tiles = [..._tiles];
+  // Whether each position is a cat (2 or 9) vs kitten (1 or 8)
+  const isCat = tiles.map(t => t === 2 || t === 9);
 
   const color = tile === 1 ? "orange" : "lightblue";
   const isP1 = tile === 1;
@@ -130,19 +135,19 @@
 
 {#await Promise.all([kittenGltf, catGltf]) then [kg, cg]}
   <T is={ref0} dispose={false}>
-    <T.Mesh geometry={kg.nodes.Kitten.geometry} scale={[0.5, 0.5, 0.5]} rotation.y={$isMobile ? -Math.PI / 2 : 0}>
+    <T.Mesh geometry={isCat[0] ? cg.nodes.Cube.geometry : kg.nodes.Kitten.geometry} scale={[0.5, 0.5, 0.5]} rotation.y={$isMobile ? -Math.PI / 2 : 0}>
       <T.MeshStandardMaterial {color} />
       <Outlines color="black" />
     </T.Mesh>
   </T>
   <T is={ref1} dispose={false}>
-    <T.Mesh geometry={kg.nodes.Kitten.geometry} scale={[0.5, 0.5, 0.5]} rotation.y={$isMobile ? -Math.PI / 2 : 0}>
+    <T.Mesh geometry={isCat[1] ? cg.nodes.Cube.geometry : kg.nodes.Kitten.geometry} scale={[0.5, 0.5, 0.5]} rotation.y={$isMobile ? -Math.PI / 2 : 0}>
       <T.MeshStandardMaterial {color} />
       <Outlines color="black" />
     </T.Mesh>
   </T>
   <T is={ref2} dispose={false}>
-    <T.Mesh geometry={kg.nodes.Kitten.geometry} scale={[0.5, 0.5, 0.5]} rotation.y={$isMobile ? -Math.PI / 2 : 0}>
+    <T.Mesh geometry={isCat[2] ? cg.nodes.Cube.geometry : kg.nodes.Kitten.geometry} scale={[0.5, 0.5, 0.5]} rotation.y={$isMobile ? -Math.PI / 2 : 0}>
       <T.MeshStandardMaterial {color} />
       <Outlines color="black" />
     </T.Mesh>

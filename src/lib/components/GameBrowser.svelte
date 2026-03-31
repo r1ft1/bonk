@@ -169,7 +169,10 @@
                             const worldPositions = line.map(
                                 (p: { x: number; y: number }) => [p.x - 2.5, 0.52, p.y - 2.5] as [number, number, number]
                             );
-                            $graduatingLines = [...$graduatingLines, { positions: worldPositions, tile: playerTile }];
+                            const tiles = line.map(
+                                (p: { x: number; y: number }) => newPayload.previousBoard?.[p.y]?.[p.x] || placedPiece
+                            );
+                            $graduatingLines = [...$graduatingLines, { positions: worldPositions, tile: playerTile, tiles }];
                         }
                     }
                 }
@@ -183,13 +186,20 @@
                         );
                         // Determine tile from previousBoard at first graduated position
                         const tile = newPayload.previousBoard?.[gradLine[0].y]?.[gradLine[0].x] ?? 1;
+                        const tiles = gradLine.map(
+                            (p: { x: number; y: number }) => newPayload.previousBoard?.[p.y]?.[p.x] ?? tile
+                        );
                         // For single-piece graduation (MAX_WAITING), pad to 3 positions
                         while (worldPositions.length < 3) {
                             worldPositions.push(worldPositions[0]);
                         }
+                        while (tiles.length < 3) {
+                            tiles.push(tiles[0]);
+                        }
                         $graduatingLines = [...$graduatingLines, {
                             positions: worldPositions as [[number, number, number], [number, number, number], [number, number, number]],
                             tile,
+                            tiles,
                         }];
                     }
                 }

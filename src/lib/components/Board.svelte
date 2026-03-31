@@ -327,6 +327,7 @@
   <GraduatingLine
     positions={line.positions}
     tile={line.tile}
+    tiles={line.tiles}
     onDone={() => { $graduatingLines = $graduatingLines.filter(l => l !== line); }}
   />
 {/each}

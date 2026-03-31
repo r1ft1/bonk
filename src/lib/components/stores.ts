@@ -126,7 +126,8 @@ export let noPiecesMsg = writable("");
 
 export type GraduatingLineData = {
 	positions: [number, number, number][]; // 3 world-space [x, y, z]
-	tile: number; // 1 (P1 kitten) or 8 (P2 kitten)
+	tile: number; // 1 (P1 kitten) or 8 (P2 kitten) — used for player color
+	tiles: number[]; // per-position tile types (1=P1 kitten, 2=P1 cat, 8=P2 kitten, 9=P2 cat)
 };
 export let graduatingLines = writable<GraduatingLineData[]>([]);
 
