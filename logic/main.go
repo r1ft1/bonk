@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
+	"crypto/rand"
 	"net/http"
 	"os"
 	"os/signal"
@@ -54,10 +54,11 @@ type Message struct {
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
-		origins := map[string]bool{
-			os.Getenv("ORIGIN_URL"): true,
+		allowed := os.Getenv("ORIGIN_URL")
+		if allowed == "" {
+			return false // fail closed if ORIGIN_URL is unset
 		}
-		return origins[r.Header.Get("Origin")]
+		return r.Header.Get("Origin") == allowed
 	},
 }
 
@@ -264,6 +265,11 @@ func (game *Game) readPump(conn *websocket.Conn, playerID string, wg *sync.WaitG
 		case <-game.done:
 			return
 		default:
+		}
+
+		// Stop processing moves after a winner is declared
+		if game.GameState.Winner != 0 {
+			return
 		}
 
 		switch game.GameState.State {
@@ -491,9 +497,13 @@ func (s *Server) handlePlayerDisconnect(gameID string, playerID string) {
 
 func generateGameID() string {
 	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	b := make([]byte, 6)
+	b := make([]byte, 8)
+	randBytes := make([]byte, 8)
+	if _, err := rand.Read(randBytes); err != nil {
+		panic("crypto/rand failed")
+	}
 	for i := range b {
-		b[i] = charset[rand.Intn(len(charset))]
+		b[i] = charset[randBytes[i]%byte(len(charset))]
 	}
 	return string(b)
 }

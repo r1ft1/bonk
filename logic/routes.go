@@ -14,6 +14,7 @@ func (s *Server) handleConnection(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Upgrade error: %v", err)
 		return
 	}
+	conn.SetReadLimit(4096) // valid moves are tiny JSON; prevent memory exhaustion
 
 	gameID := r.URL.Query().Get("gameID")
 	var game *Game
